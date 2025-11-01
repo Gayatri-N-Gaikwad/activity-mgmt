@@ -1,0 +1,1 @@
+// Nodemailer setup: for sending email notification to the faculty
