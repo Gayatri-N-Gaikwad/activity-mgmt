@@ -10,12 +10,16 @@ import ProtectedRoute from "./components/ProtectedRoute";
 function App() {
   const [backendStatus, setBackendStatus] = useState("Checking backend...");
 
-  useEffect(() => {
-    axios
-      .get("http://localhost:5000/api/auth/health")
-      .then((res) => setBackendStatus(res.data.message))
-      .catch(() => setBackendStatus("❌ Could not connect to backend"));
-  }, []);
+const backendURL =
+  process.env.REACT_APP_BACKEND_URL || "http://localhost:5000";
+
+useEffect(() => {
+  axios
+    .get(`${backendURL}/api/auth/health`)
+    .then((res) => setBackendStatus(res.data.message))
+    .catch(() => setBackendStatus("❌ Could not connect to backend"));
+}, []);
+
 
   return (
     <Router>
