@@ -18,7 +18,8 @@ useEffect(() => {
     .get(`${backendURL}/api/auth/health`)
     .then((res) => setBackendStatus(res.data.message))
     .catch(() => setBackendStatus("❌ Could not connect to backend"));
-}, []);
+}, [backendURL]); // ✅ Added backendURL to dependency array
+
 
 
   return (
