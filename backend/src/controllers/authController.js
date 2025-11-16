@@ -7,6 +7,10 @@ export const registerUser = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
 
+    console.log("Login payload:", req.body);
+    console.log("JWT_SECRET:", process.env.JWT_SECRET);
+
+
     // Check existing user
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ message: "User already exists" });
@@ -29,6 +33,10 @@ export const registerUser = async (req, res) => {
 export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    console.log("Login payload:", req.body);
+    console.log("JWT_SECRET:", process.env.JWT_SECRET);
+
 
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: "User not found" });
