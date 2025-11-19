@@ -1,9 +1,10 @@
-// src/models/Class.js
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+import mongoose from 'mongoose';
+
+const { Schema } = mongoose;
 
 const classSchema = new Schema({
   name: { type: String, required: true, unique: true } // e.g., "TE-A"
 }, { timestamps: true });
 
-module.exports = mongoose.model('Class', classSchema);
+const Class = mongoose.model('Class', classSchema);
+export default Class;

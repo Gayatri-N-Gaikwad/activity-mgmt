@@ -1,6 +1,6 @@
-// src/models/RubricCriteria.js
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+import mongoose from 'mongoose';
+
+const { Schema } = mongoose;
 
 const rubricSchema = new Schema({
   activityId: { type: Schema.Types.ObjectId, ref: 'Activity', required: true },
@@ -8,4 +8,6 @@ const rubricSchema = new Schema({
   maxMarks: { type: Number, required: true } // e.g. 10 or 8 etc
 }, { timestamps: true });
 
-module.exports = mongoose.model('RubricCriteria', rubricSchema);
+const RubricCriteria = mongoose.model('RubricCriteria', rubricSchema);
+
+export default RubricCriteria;

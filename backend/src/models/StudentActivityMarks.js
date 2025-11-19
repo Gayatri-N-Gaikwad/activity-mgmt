@@ -1,6 +1,6 @@
-// src/models/StudentActivityMarks.js
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+import mongoose from 'mongoose';
+
+const { Schema } = mongoose;
 
 const marksSchema = new Schema({
   studentId: { type: Schema.Types.ObjectId, ref: 'Student', required: true },
@@ -13,4 +13,6 @@ const marksSchema = new Schema({
 
 marksSchema.index({ studentId: 1, activityId: 1 }, { unique: true });
 
-module.exports = mongoose.model('StudentActivityMarks', marksSchema);
+const StudentActivityMarks = mongoose.model('StudentActivityMarks', marksSchema);
+
+export default StudentActivityMarks;
