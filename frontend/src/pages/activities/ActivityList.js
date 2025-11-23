@@ -21,10 +21,10 @@ function ActivityList() {
   const loadActivities = async () => {
     try {
       const res = await API.get("/activities/all");
-      console.log("API Activities:", res.data.activities);
       setActivities(res.data.activities || []);
     } catch (err) {
       console.error("Error loading activities:", err);
+      showToast('error', 'Failed to load activities');
     }
   };
 
@@ -41,11 +41,44 @@ function ActivityList() {
     }
   };
 
+  function handleStatusChangeRequest(act, newStatus) {
+    if (!act || newStatus === act.status) return;
+
+    const now = Date.now();
+
+    // Validation: Scheduled -> Conducted only if scheduleDate <= now
+    if (newStatus === 'Conducted') {
+      if (act.status === 'Marks_Updated') {
+        showToast('error', 'Cannot mark as Conducted: marks already updated');
+        return;
+      }
+      if (!act.scheduleDate) {
+        showToast('error', 'Cannot mark as Conducted: activity has no scheduled date');
+        return;
+      }
+      const sched = new Date(act.scheduleDate).getTime();
+      if (isNaN(sched) || sched > now) {
+        showToast('error', 'Cannot mark as Conducted before scheduled date/time');
+        return;
+      }
+    }
+
+    // Validation: Marks Updated only if current status is Conducted
+    if (newStatus === 'Marks_Updated' && act.status !== 'Conducted') {
+      showToast('error', 'Can update marks only after the activity has been Conducted');
+      return;
+    }
+
+    // Passed validations -> show confirmation modal
+    setModalPayload({ act, newStatus });
+    setModalOpen(true);
+  }
+
   return (
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2>Activities</h2>
-        {[("faculty"), ("coordinator"), ("hod")].includes(role) && (
+        {["faculty", "coordinator", "hod"].includes(role) && (
           <Link to="/activity/create" className="btn btn-primary" style={{textDecoration:'none'}}>
             <i className="fa fa-plus" style={{marginRight:8}}></i> Create Activity
           </Link>
@@ -91,14 +124,18 @@ function ActivityList() {
                         )}
                       </>
                     )}
-                    {/* show rubric summary */}
+
                     {act.rubric && act.rubric.length > 0 && (
                       <div style={{ marginTop: 6, color: '#444', fontSize: 13 }}>
                         <strong>Rubric:</strong> {act.rubric.map(r => `${r.name} ${r.maxMarks}`).join(' + ')}
                       </div>
                     )}
                   </td>
-                  <td className="col-schedule">{act.scheduleDate ? new Date(act.scheduleDate).toLocaleString('en-GB', { timeZone: 'Asia/Kolkata', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : "Not Scheduled"}</td>
+                  <td className="col-schedule">
+                    {act.scheduleDate 
+                      ? new Date(act.scheduleDate).toLocaleString('en-GB', { timeZone: 'Asia/Kolkata', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })
+                      : "Not Scheduled"}
+                  </td>
                   <td className="col-status">
                     <select
                       className="status-select"
@@ -111,8 +148,19 @@ function ActivityList() {
                     </select>
                   </td>
                   <td className="actions-cell">
-                    <Link to={`/activity/edit/${act._id}`} className="muted" style={{marginRight:12}}><i className="fa fa-pen-to-square" style={{marginRight:6}}></i>Edit</Link>
-                    <button onClick={() => deleteActivity(act._id)} className="btn btn-danger"><i className="fa fa-trash" style={{marginRight:6}}></i>Delete</button>
+                    <Link to={`/activity/edit/${act._id}`} className="muted" style={{marginRight:12}}>
+                      <i className="fa fa-pen-to-square" style={{marginRight:6}}></i>Edit
+                    </Link>
+
+                    {act.status === "Conducted" && (
+                      <Link to={`/marks/activity/${act._id}`} className="btn btn-success" style={{marginRight:12}}>
+                        <i className="fa fa-plus" style={{marginRight:6}}></i>Add Marks
+                      </Link>
+                    )}
+
+                    <button onClick={() => deleteActivity(act._id)} className="btn btn-danger">
+                      <i className="fa fa-trash" style={{marginRight:6}}></i>Delete
+                    </button>
                   </td>
                 </tr>
               ))
@@ -120,6 +168,7 @@ function ActivityList() {
           </tbody>
         </table>
       </div>
+
       {modalPayload && (
         <StatusConfirmModal
           open={modalOpen}
@@ -127,7 +176,7 @@ function ActivityList() {
           currentStatus={modalPayload.act.status}
           newStatus={modalPayload.newStatus}
           onClose={() => { setModalOpen(false); setModalPayload(null); }}
-            onConfirm={async (reason) => {
+          onConfirm={async (reason) => {
             try {
               await API.put(`/activities/update/${modalPayload.act._id}`, { status: modalPayload.newStatus, statusChangeReason: reason });
               // update local state
@@ -145,43 +194,6 @@ function ActivityList() {
       )}
     </div>
   );
-
-  function handleStatusChangeRequest(act, newStatus) {
-    if (!act) return;
-    if (newStatus === act.status) return;
-
-    const now = Date.now();
-
-    // Validation: Scheduled -> Conducted only if scheduleDate <= now
-    if (newStatus === 'Conducted') {
-      // Do not allow reverting to Conducted if marks already updated
-      if (act.status === 'Marks_Updated') {
-        showToast('error', 'Cannot mark as Conducted: marks already updated');
-        return;
-      }
-      if (!act.scheduleDate) {
-        showToast('error', 'Cannot mark as Conducted: activity has no scheduled date');
-        return;
-      }
-      const sched = new Date(act.scheduleDate).getTime();
-      if (isNaN(sched) || sched > now) {
-        showToast('error', 'Cannot mark as Conducted before scheduled date/time');
-        return;
-      }
-    }
-
-    // Validation: Marks Updated only if current status is Conducted
-    if (newStatus === 'Marks_Updated') {
-      if (act.status !== 'Conducted') {
-        showToast('error', 'Can update marks only after the activity has been Conducted');
-        return;
-      }
-    }
-
-    // Passed validations -> show confirmation modal
-    setModalPayload({ act, newStatus });
-    setModalOpen(true);
-  }
 }
 
 export default ActivityList;

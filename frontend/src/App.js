@@ -77,7 +77,7 @@
 
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route} from "react-router-dom";
 
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
@@ -91,7 +91,7 @@ import ActivityList from "./pages/activities/ActivityList";
 import CreateActivity from "./pages/activities/CreateActivity";
 import EditActivity from "./pages/activities/EditActivity";
 import ScheduleActivity from "./pages/activities/ScheduleActivity";
-import UpdateMarks from "./pages/UpdateMarks";
+import AddMarks from "./pages/activities/AddMarks";
 
 function App() {
   const [backendStatus, setBackendStatus] = useState("Checking backend...");
@@ -167,13 +167,14 @@ function App() {
           />
 
           <Route
-            path="/marks/update"
+            path="/marks/activity/:activityId"
             element={
               <ProtectedRoute>
-                <UpdateMarks />
+                <AddMarks/>
               </ProtectedRoute>
             }
           />
+
         </Routes>
       </div>
     </Router>

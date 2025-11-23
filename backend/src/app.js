@@ -7,6 +7,11 @@ import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
 import activityRoutes from "./routes/activityRoutes.js";
 import marksRoutes from "./routes/marksRoutes.js";
+import classRoutes from "./routes/classRoutes.js";
+import studentRoutes from "./routes/studentRoutes.js";
+import teachingAssignmentRoutes from "./routes/teachingAssignmentRoutes.js";
+import subjectRoutes from "./routes/subjectRoutes.js";
+import rubricRoutes from "./routes/rubricRoutes.js"
 
 dotenv.config();
 console.log("✅ ENV file loaded");
@@ -56,6 +61,12 @@ app.get("/", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/activities", activityRoutes);
 app.use("/api/marks", marksRoutes);
+app.use("/api/classes", classRoutes);
+app.use("/api/students", studentRoutes);
+app.use("/api/teaching-assignment", teachingAssignmentRoutes);
+app.use("/api/subjects", subjectRoutes);
+app.use("/api/rubric", rubricRoutes);
+
 
 // --------------------
 // 🔹 Start server

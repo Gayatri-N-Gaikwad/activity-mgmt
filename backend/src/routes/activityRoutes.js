@@ -6,7 +6,10 @@ import {
   getActivityById,
   updateActivity,
   scheduleActivity,
-  deleteActivity
+  deleteActivity,
+  getActivitiesByAssignment,
+  getActivitiesByClassSubject,
+  getStudentsByClass
 } from "../controllers/activityController.js";
 
 const router = express.Router();
@@ -21,8 +24,15 @@ router.post(
 /*----------------------- GET ALL ACTIVITIES -----------------------*/
 router.get("/all", getAllActivities);
 
+/* -------- GET ACTIVITIES BY ASSIGNMENT  -------- */
+router.get("/", getActivitiesByAssignment);
+
 /*----------------------- GET ONE ACTIVITY -----------------------*/
 router.get("/:id", getActivityById);
+
+router.get("/by-class-subject/:classId/:subjectId", getActivitiesByClassSubject);
+
+router.get("/by-assignment/:assignmentId", getActivitiesByAssignment);
 
 /*----------------------- UPDATE ACTIVITY -----------------------*/
 router.put(
@@ -45,4 +55,7 @@ router.delete(
   deleteActivity
 );
 
+
+// GET all students in a class
+router.get("/class/:classId/students", getStudentsByClass);
 export default router;
