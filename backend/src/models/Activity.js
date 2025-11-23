@@ -9,7 +9,7 @@ const activitySchema = new Schema({
   scheduleDate: { type: Date, required: true },
   status: { type: String, enum: ['Scheduled','Conducted','Marks_Updated'], default: 'Scheduled' },
   coordinatorId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-  assignmentId: { type: Schema.Types.String, ref: 'TeachingAssignment', required: false }
+  assignmentId: { type: Schema.Types.ObjectId, ref: 'TeachingAssignment', required: false }
 }, { timestamps: true });
 
 const Activity = mongoose.model("Activity", activitySchema);
