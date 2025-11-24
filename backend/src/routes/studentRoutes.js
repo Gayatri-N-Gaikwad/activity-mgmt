@@ -1,5 +1,7 @@
 import express from "express";
 import Student from "../models/Student.js";
+// const Student = require("../models/Student.js");
+
 
 const router = express.Router();
 

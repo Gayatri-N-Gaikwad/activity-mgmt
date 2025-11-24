@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import API from "../../services/api";
 import showToast from '../../utils/toast';
@@ -22,20 +22,23 @@ function EditActivity() {
 
   
 
-  const fetchActivity = async () => {
-    const res = await API.get(`/activities/${id}`);
-    const act = res.data.activity;
-    const rubric = res.data.rubric || [];
-    if (Array.isArray(rubric) && rubric.length > 0) {
-      setCrit1Name(rubric[0].name || '');
-      setCrit1Marks(rubric[0].maxMarks || 0);
-      if (rubric[1]) {
-        setCrit2Name(rubric[1].name || '');
-        setCrit2Marks(rubric[1].maxMarks || 0);
-      }
+const fetchActivity = useCallback(async () => {
+  const res = await API.get(`/activities/${id}`);
+  const act = res.data.activity;
+  const rubric = res.data.rubric || [];
+
+  if (Array.isArray(rubric) && rubric.length > 0) {
+    setCrit1Name(rubric[0].name || '');
+    setCrit1Marks(rubric[0].maxMarks || 0);
+    if (rubric[1]) {
+      setCrit2Name(rubric[1].name || '');
+      setCrit2Marks(rubric[1].maxMarks || 0);
     }
-    setActivity(act);
-  };
+  }
+
+  setActivity(act);
+}, [id]);
+
 
   const update = async (e) => {
     e.preventDefault();
@@ -79,9 +82,10 @@ function EditActivity() {
     }
   };
 
-  useEffect(() => {
-    fetchActivity();
-  }, []);
+useEffect(() => {
+  fetchActivity();
+}, [fetchActivity]);
+
 
   return (
     <div>

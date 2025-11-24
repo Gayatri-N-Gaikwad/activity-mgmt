@@ -1,6 +1,8 @@
 import TeachingAssignment from "../models/TeachingAssignment.js";
 import Activity from "../models/Activity.js";
 import Student from "../models/Student.js";
+// const Student = require("../models/Student.js");
+
 
 /*  GET ALL ASSIGNMENTS FOR CLASS */
 export const getAssignmentsByClass = async (req, res) => {

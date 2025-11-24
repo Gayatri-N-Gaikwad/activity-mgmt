@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import API from "../services/api";
 import showToast from "../utils/toast";
-import LogoutButton from "../components/LogoutButton";
+// import LogoutButton from "../components/LogoutButton";
 
 function DashboardPage() {
   const user = JSON.parse(localStorage.getItem("user"));

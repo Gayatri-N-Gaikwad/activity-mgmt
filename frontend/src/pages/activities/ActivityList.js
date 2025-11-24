@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import API from "../../services/api";
 import StatusConfirmModal from "../../components/StatusConfirmModal";
-import showToast from '../../utils/toast';
+import showToast from "../../utils/toast";
 
 function ActivityList() {
   const [activities, setActivities] = useState([]);
@@ -24,20 +24,21 @@ function ActivityList() {
       setActivities(res.data.activities || []);
     } catch (err) {
       console.error("Error loading activities:", err);
-      showToast('error', 'Failed to load activities');
+      showToast("error", "Failed to load activities");
     }
   };
 
   const deleteActivity = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this activity?")) return;
+    if (!window.confirm("Are you sure you want to delete this activity?"))
+      return;
 
     try {
       await API.delete(`/activities/delete/${id}`);
-      showToast('success', 'Activity deleted');
+      showToast("success", "Activity deleted");
       loadActivities();
     } catch (err) {
       console.error(err);
-      showToast('error', 'Error deleting activity');
+      showToast("error", "Error deleting activity");
     }
   };
 
@@ -47,25 +48,34 @@ function ActivityList() {
     const now = Date.now();
 
     // Validation: Scheduled -> Conducted only if scheduleDate <= now
-    if (newStatus === 'Conducted') {
-      if (act.status === 'Marks_Updated') {
-        showToast('error', 'Cannot mark as Conducted: marks already updated');
+    if (newStatus === "Conducted") {
+      if (act.status === "Marks_Updated") {
+        showToast("error", "Cannot mark as Conducted: marks already updated");
         return;
       }
       if (!act.scheduleDate) {
-        showToast('error', 'Cannot mark as Conducted: activity has no scheduled date');
+        showToast(
+          "error",
+          "Cannot mark as Conducted: activity has no scheduled date"
+        );
         return;
       }
       const sched = new Date(act.scheduleDate).getTime();
       if (isNaN(sched) || sched > now) {
-        showToast('error', 'Cannot mark as Conducted before scheduled date/time');
+        showToast(
+          "error",
+          "Cannot mark as Conducted before scheduled date/time"
+        );
         return;
       }
     }
 
     // Validation: Marks Updated only if current status is Conducted
-    if (newStatus === 'Marks_Updated' && act.status !== 'Conducted') {
-      showToast('error', 'Can update marks only after the activity has been Conducted');
+    if (newStatus === "Marks_Updated" && act.status !== "Conducted") {
+      showToast(
+        "error",
+        "Can update marks only after the activity has been Conducted"
+      );
       return;
     }
 
@@ -76,11 +86,22 @@ function ActivityList() {
 
   return (
     <div className="card">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
         <h2>Activities</h2>
         {["faculty", "coordinator", "hod"].includes(role) && (
-          <Link to="/activity/create" className="btn btn-primary" style={{textDecoration:'none'}}>
-            <i className="fa fa-plus" style={{marginRight:8}}></i> Create Activity
+          <Link
+            to="/activity/create"
+            className="btn btn-primary"
+            style={{ textDecoration: "none" }}
+          >
+            <i className="fa fa-plus" style={{ marginRight: 8 }}></i> Create
+            Activity
           </Link>
         )}
       </div>
@@ -113,34 +134,68 @@ function ActivityList() {
                       <>
                         <span>{act.description}</span>
                         {act.description && act.description.length > 120 && (
-                          <a href="#" onClick={(e) => { e.preventDefault(); const s = new Set(expanded); s.delete(act._id); setExpanded(s); }} className="desc-toggle"> show less</a>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              const s = new Set(expanded);
+                              s.delete(act._id);
+                              setExpanded(s);
+                            }}
+                            className="desc-toggle"
+                          >
+                            show less
+                          </button>
                         )}
                       </>
                     ) : (
                       <>
                         <span className="truncate">{act.description}</span>
                         {act.description && act.description.length > 120 && (
-                          <a href="#" onClick={(e) => { e.preventDefault(); const s = new Set(expanded); s.add(act._id); setExpanded(s); }} className="desc-toggle"> view more</a>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              const s = new Set(expanded);
+                              s.add(act._id);
+                              setExpanded(s);
+                            }}
+                            className="desc-toggle"
+                          >
+                            view more
+                          </button>
                         )}
                       </>
                     )}
 
                     {act.rubric && act.rubric.length > 0 && (
-                      <div style={{ marginTop: 6, color: '#444', fontSize: 13 }}>
-                        <strong>Rubric:</strong> {act.rubric.map(r => `${r.name} ${r.maxMarks}`).join(' + ')}
+                      <div
+                        style={{ marginTop: 6, color: "#444", fontSize: 13 }}
+                      >
+                        <strong>Rubric:</strong>{" "}
+                        {act.rubric
+                          .map((r) => `${r.name} ${r.maxMarks}`)
+                          .join(" + ")}
                       </div>
                     )}
                   </td>
                   <td className="col-schedule">
-                    {act.scheduleDate 
-                      ? new Date(act.scheduleDate).toLocaleString('en-GB', { timeZone: 'Asia/Kolkata', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })
+                    {act.scheduleDate
+                      ? new Date(act.scheduleDate).toLocaleString("en-GB", {
+                          timeZone: "Asia/Kolkata",
+                          year: "numeric",
+                          month: "2-digit",
+                          day: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
                       : "Not Scheduled"}
                   </td>
                   <td className="col-status">
                     <select
                       className="status-select"
                       value={act.status}
-                      onChange={(e) => handleStatusChangeRequest(act, e.target.value)}
+                      onChange={(e) =>
+                        handleStatusChangeRequest(act, e.target.value)
+                      }
                     >
                       <option value="Scheduled">Scheduled</option>
                       <option value="Conducted">Conducted</option>
@@ -148,18 +203,38 @@ function ActivityList() {
                     </select>
                   </td>
                   <td className="actions-cell">
-                    <Link to={`/activity/edit/${act._id}`} className="muted" style={{marginRight:12}}>
-                      <i className="fa fa-pen-to-square" style={{marginRight:6}}></i>Edit
+                    <Link
+                      to={`/activity/edit/${act._id}`}
+                      className="muted"
+                      style={{ marginRight: 12 }}
+                    >
+                      <i
+                        className="fa fa-pen-to-square"
+                        style={{ marginRight: 6 }}
+                      ></i>
+                      Edit
                     </Link>
 
                     {act.status === "Conducted" && (
-                      <Link to={`/marks/activity/${act._id}`} className="btn btn-success" style={{marginRight:12}}>
-                        <i className="fa fa-plus" style={{marginRight:6}}></i>Add Marks
+                      <Link
+                        to={`/marks/activity/${act._id}`}
+                        className="btn btn-success"
+                        style={{ marginRight: 12 }}
+                      >
+                        <i
+                          className="fa fa-plus"
+                          style={{ marginRight: 6 }}
+                        ></i>
+                        Add Marks
                       </Link>
                     )}
 
-                    <button onClick={() => deleteActivity(act._id)} className="btn btn-danger">
-                      <i className="fa fa-trash" style={{marginRight:6}}></i>Delete
+                    <button
+                      onClick={() => deleteActivity(act._id)}
+                      className="btn btn-danger"
+                    >
+                      <i className="fa fa-trash" style={{ marginRight: 6 }}></i>
+                      Delete
                     </button>
                   </td>
                 </tr>
@@ -175,16 +250,31 @@ function ActivityList() {
           activityName={modalPayload.act.name}
           currentStatus={modalPayload.act.status}
           newStatus={modalPayload.newStatus}
-          onClose={() => { setModalOpen(false); setModalPayload(null); }}
+          onClose={() => {
+            setModalOpen(false);
+            setModalPayload(null);
+          }}
           onConfirm={async (reason) => {
             try {
-              await API.put(`/activities/update/${modalPayload.act._id}`, { status: modalPayload.newStatus, statusChangeReason: reason });
+              await API.put(`/activities/update/${modalPayload.act._id}`, {
+                status: modalPayload.newStatus,
+                statusChangeReason: reason,
+              });
               // update local state
-              setActivities((prev) => prev.map(a => a._id === modalPayload.act._id ? { ...a, status: modalPayload.newStatus } : a));
-              showToast('success', 'Status updated');
+              setActivities((prev) =>
+                prev.map((a) =>
+                  a._id === modalPayload.act._id
+                    ? { ...a, status: modalPayload.newStatus }
+                    : a
+                )
+              );
+              showToast("success", "Status updated");
             } catch (err) {
-              console.error('Status update error', err);
-              showToast('error', err.response?.data?.error || 'Error updating status');
+              console.error("Status update error", err);
+              showToast(
+                "error",
+                err.response?.data?.error || "Error updating status"
+              );
             } finally {
               setModalOpen(false);
               setModalPayload(null);

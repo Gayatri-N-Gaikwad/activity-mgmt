@@ -4,6 +4,8 @@ import * as StudentActivityMarksMod from "../models/StudentActivityMarks.js";
 import { scheduleActivityReminder } from "../utils/scheduler.js";
 import TeachingAssignment from "../models/TeachingAssignment.js";
 import Student from "../models/Student.js";
+// const Student = require("../models/Student.js");
+
 
 // Handle CommonJS exports from model files (they use module.exports)
 const RubricCriteria = RubricCriteriaMod.default || RubricCriteriaMod;

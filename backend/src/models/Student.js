@@ -1,6 +1,6 @@
-// src/models/Student.js
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+import mongoose from "mongoose";
+
+const { Schema } = mongoose;
 
 const studentSchema = new Schema({
   rollNumber: { type: String, required: true },
@@ -10,4 +10,6 @@ const studentSchema = new Schema({
 
 studentSchema.index({ rollNumber: 1, classId: 1 }, { unique: true });
 
-module.exports = mongoose.model('Student', studentSchema);
+const Student = mongoose.model('Student', studentSchema);
+
+export default Student;
