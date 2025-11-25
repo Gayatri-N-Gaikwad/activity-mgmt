@@ -104,12 +104,12 @@ function AddMarks() {
     });
   };
 
-  const handleAttendanceChange = (studentId, value) => {
-    setMarksData((prev) => ({
-      ...prev,
-      [studentId]: { ...prev[studentId], attendanceMarks: Number(value) },
-    }));
-  };
+  // const handleAttendanceChange = (studentId, value) => {
+  //   setMarksData((prev) => ({
+  //     ...prev,
+  //     [studentId]: { ...prev[studentId], attendanceMarks: Number(value) },
+  //   }));
+  // };
 
   const submitAllMarks = async () => {
     try {
