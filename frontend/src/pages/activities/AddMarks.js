@@ -10,6 +10,8 @@ function AddMarks() {
   const [students, setStudents] = useState([]);
   const [marksData, setMarksData] = useState({});
   const [loading, setLoading] = useState(true);
+  const [subjectId, setSubjectId] = useState(null);
+  const [classId, setClassId] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -27,20 +29,30 @@ function AddMarks() {
 
         setActivity({ ...activityDetails, rubric });
 
-        // Fetch assignment to get classId
+        // Fetch assignment to get classId and subjectId
         const resAssign = await API.get(`/teaching-assignment/${activityDetails.assignmentId}`);
+        const assignment = resAssign.data.assignment;
 
-        const classId =
-          resAssign.data.assignment?.classId?._id ||
-          resAssign.data.assignment?.classId;
-
-        if (!classId) {
-          showToast("error", "Class ID not found for this teaching assignment.");
+        if (!assignment) {
+          showToast("error", "Teaching assignment not found");
           setLoading(false);
           return;
         }
 
-        const resStudents = await API.get(`/students/by-class/${classId}`);
+        const subjId = assignment.subjectId?._id || assignment.subjectId;
+        const clsId = assignment.classId?._id || assignment.classId;
+
+        if (!subjId || !clsId) {
+          showToast("error", "Subject ID or Class ID not found");
+          setLoading(false);
+          return;
+        }
+
+        setSubjectId(subjId);
+        setClassId(clsId);
+
+        // Fetch students for this class
+        const resStudents = await API.get(`/students/by-class/${clsId}`);
         const studentsList = resStudents.data.students || [];
         setStudents(studentsList);
 
@@ -63,6 +75,7 @@ function AddMarks() {
                 ? existing.rubricMarks.find(rr => rr.criteriaId._id === r._id)?.marks || 0
                 : 0,
             })),
+            attendanceMarks: existing?.attendanceMarks || 0,
             exists: !!existing,
             id: existing?._id,
           };
@@ -91,37 +104,46 @@ function AddMarks() {
     });
   };
 
+  const handleAttendanceChange = (studentId, value) => {
+    setMarksData((prev) => ({
+      ...prev,
+      [studentId]: { ...prev[studentId], attendanceMarks: Number(value) },
+    }));
+  };
+
   const submitAllMarks = async () => {
-  try {
-    for (const studentId of Object.keys(marksData)) {
-      const payload = marksData[studentId];
-      const data = {
-        rubricMarks: payload.rubricMarks.map((r) => ({
-          criteriaId: r.criteriaId,
-          marks: r.marks,
-        })),
-      };
+    try {
+      for (const studentId of Object.keys(marksData)) {
+        const payload = marksData[studentId];
+        const data = {
+          rubricMarks: payload.rubricMarks.map((r) => ({
+            criteriaId: r.criteriaId,
+            marks: r.marks,
+          })),
+          subjectId,
+          classId,
+        };
 
-      if (payload.exists) {
-        await API.put(`/marks/update/${payload.id}`, data);
-      } else {
-        const res = await API.post(`/marks/add`, { studentId, activityId, ...data });
-        setMarksData((prev) => ({
-          ...prev,
-          [studentId]: { ...prev[studentId], exists: true, id: res.data._id || res.data.mark?._id },
-        }));
+        if (payload.exists) {
+          await API.put(`/marks/update/${payload.id}`, data);
+        } else {
+          const res = await API.post(`/marks/add`, { studentId, activityId, ...data });
+          setMarksData((prev) => ({
+            ...prev,
+            [studentId]: { ...prev[studentId], exists: true, id: res.data._id || res.data.mark?._id },
+          }));
+        }
       }
+
+      // Update activity status to "Marks_Updated"
+      await API.put(`/activities/update/${activityId}`, { status: "Marks_Updated" });
+
+      showToast("success", "All marks saved and activity status updated");
+    } catch (err) {
+      console.error(err);
+      showToast("error", err.response?.data?.error || "Error saving marks");
     }
-
-    //  Update activity status to "Marks_Updated"
-    await API.put(`/activities/update/${activityId}`, { status: "Marks_Updated" });
-
-    showToast("success", "All marks saved and activity status updated");
-  } catch (err) {
-    console.error(err);
-    showToast("error", err.response?.data?.error || "Error saving marks");
-  }
-};
+  };
 
   if (loading) return <div>Loading...</div>;
   if (!activity) return <div>Activity not found</div>;

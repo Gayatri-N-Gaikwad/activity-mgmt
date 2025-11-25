@@ -4,8 +4,7 @@ import * as StudentActivityMarksMod from "../models/StudentActivityMarks.js";
 import { scheduleActivityReminder } from "../utils/scheduler.js";
 import TeachingAssignment from "../models/TeachingAssignment.js";
 import Student from "../models/Student.js";
-// const Student = require("../models/Student.js");
-
+import StudentSubjectMarks from "../models/StudentSubjectMarks.js";
 
 // Handle CommonJS exports from model files (they use module.exports)
 const RubricCriteria = RubricCriteriaMod.default || RubricCriteriaMod;
@@ -303,16 +302,30 @@ export const scheduleActivity = async (req, res) => {
 export const deleteActivity = async (req, res) => {
   try {
     const activityId = req.params.id;
+
+    // Delete activity
     await Activity.findByIdAndDelete(activityId);
-    // remove rubric criteria and any student marks for this activity
+
+    // Delete rubric entries
     await RubricCriteria.deleteMany({ activityId });
+
+    // Delete student activity marks
     await StudentActivityMarks.deleteMany({ activityId });
+
+    // Delete from studentsubjectmarks activities array
+    await StudentSubjectMarks.updateMany(
+      {},
+      { $pull: { activities: { activityId } } }
+    );
+
     res.json({ message: "Activity deleted successfully" });
+
   } catch (error) {
     console.error("🔥 deleteActivity ERROR:", error);
     res.status(500).json({ error: "Server error" });
   }
 };
+
 
 /* ----------------- GET TOTAL MARKS FOR AN ACTIVITY ----------------- */
 export const getTotalMarksForActivity = async (req, res) => {

@@ -1,44 +1,37 @@
 import express from "express";
-import { ensureRole } from "../middlewares/ensureRole.js";
 import {
   addMarks,
-  getAllMarks,
-  getMarksByStudent,
   updateMarks,
   deleteMarks,
-  checkMarksExist,
-  getMarksByActivityId,
-  getMarksBatch,
-  getMarksByClassSubject, 
+  getMarksByActivity,
+  getMarksByStudent,
+  getAllMarks,
+  getMarksByClassSubject
 } from "../controllers/marksController.js";
 
 const router = express.Router();
 
-/* Add marks */
-router.post("/add", ensureRole(["Faculty", "Coordinator"]), addMarks);
+/* ------------------- MARKS ROUTES ------------------- */
 
-/* Get all marks */
-router.get("/all", ensureRole(["Faculty", "Coordinator", "HOD"]), getAllMarks);
+// Add marks for a student for one activity
+router.post("/add", addMarks);
 
-/* Get marks by student */
-router.get("/student/:studentId", ensureRole(["Faculty", "Coordinator", "HOD"]), getMarksByStudent);
+// Update marks for a student for one activity
+router.put("/update/:studentSubjectMarksId/:activityId", updateMarks);
 
-/* Batch fetch marks */
-router.get("/batch", getMarksBatch);
+// Delete marks for a student for one activity
+router.delete("/delete/:studentSubjectMarksId/:activityId", deleteMarks);
 
-/* Update marks */
-router.put("/update/:id", ensureRole(["Faculty", "Coordinator"]), updateMarks);
+// Get marks for all students for one activity
+router.get("/activity/:activityId", getMarksByActivity);
 
-/* Delete marks */
-router.delete("/delete/:id", ensureRole(["Faculty", "Coordinator", "HOD"]), deleteMarks);
+// Get marks for one student
+router.get("/student/:studentId", getMarksByStudent);
 
-/* Get marks for a specific activity */
-router.get("/activity/:activityId", ensureRole(["Faculty", "Coordinator", "HOD"]), getMarksByActivityId);
+// Get marks for class+subject
+router.get("/class/:classId/subject/:subjectId", getMarksByClassSubject);
 
-/* Check if marks exist for an activity */
-router.get("/check-exists/:activityId", checkMarksExist);
-
-/* Get marks for all students in a class & subject */
-router.get("/class/:classId/subject/:subjectId", ensureRole(["Faculty", "Coordinator", "HOD"]), getMarksByClassSubject);
+// Get all marks (admin/debug)
+router.get("/", getAllMarks);
 
 export default router;
