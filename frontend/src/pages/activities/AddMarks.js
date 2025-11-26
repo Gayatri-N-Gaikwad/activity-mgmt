@@ -112,6 +112,31 @@ function AddMarks() {
   // };
 
   const submitAllMarks = async () => {
+    const violations = [];
+
+    Object.entries(marksData).forEach(([studentId, payload]) => {
+      payload?.rubricMarks?.forEach((r) => {
+        const entered = Number(r.marks ?? 0);
+        const allowed = Number(r.maxMarks ?? 0);
+        if (entered > allowed) {
+          const student = students.find((s) => s._id === studentId);
+          violations.push(
+            `${student?.name || "Student"} → ${r.name || "Criteria"} (${entered}/${allowed})`
+          );
+        }
+      });
+    });
+
+    if (violations.length) {
+      showToast(
+        "error",
+        `Marks exceed allowed values:\n${violations.slice(0, 3).join("\n")}${
+          violations.length > 3 ? "…" : ""
+        }`
+      );
+      return;
+    }
+
     try {
       for (const studentId of Object.keys(marksData)) {
         const payload = marksData[studentId];

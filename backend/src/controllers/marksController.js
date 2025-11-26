@@ -1,6 +1,66 @@
 import StudentSubjectMarks from "../models/StudentSubjectMarks.js";
 import Activity from "../models/Activity.js";
-import TeachingAssignment from "../models/TeachingAssignment.js";
+import RubricCriteria from "../models/RubricCriteria.js";
+
+const validateRubricSubmission = async (activityId, rubricMarks = []) => {
+  if (!activityId) {
+    return { valid: false, message: "activityId is required for rubric validation" };
+  }
+
+  if (!Array.isArray(rubricMarks) || rubricMarks.length === 0) {
+    return { valid: false, message: "rubricMarks must contain at least one entry" };
+  }
+
+  const rubricCriteria = await RubricCriteria.find({ activityId }).select("name maxMarks");
+  if (!rubricCriteria.length) {
+    return { valid: false, message: "No rubric defined for this activity" };
+  }
+
+  let maxTotal = 0;
+  const criteriaMap = new Map();
+  for (const crit of rubricCriteria) {
+    const maxMarks = Number(crit.maxMarks);
+    if (Number.isNaN(maxMarks) || maxMarks <= 0) {
+      return {
+        valid: false,
+        message: `Rubric criteria "${crit.name || "Unnamed"}" is misconfigured. Please set valid max marks.`,
+      };
+    }
+    criteriaMap.set(crit._id.toString(), { name: crit.name, maxMarks });
+    maxTotal += maxMarks;
+  }
+
+  let total = 0;
+  for (const entry of rubricMarks) {
+    const criteriaId = entry?.criteriaId?.toString();
+    const marksValue = Number(entry?.marks ?? 0);
+
+    if (!criteriaId || !criteriaMap.has(criteriaId)) {
+      return { valid: false, message: "Invalid rubric criteria supplied" };
+    }
+
+    if (Number.isNaN(marksValue)) {
+      return { valid: false, message: "Marks must be numeric values" };
+    }
+
+    if (marksValue < 0) {
+      return { valid: false, message: "Marks cannot be negative" };
+    }
+
+    const { name, maxMarks } = criteriaMap.get(criteriaId);
+    if (marksValue > maxMarks) {
+      return { valid: false, message: `Marks for ${name} cannot exceed ${maxMarks}` };
+    }
+
+    total += marksValue;
+  }
+
+  if (total > maxTotal) {
+    return { valid: false, message: `Total marks ${total} exceed allowed ${maxTotal}` };
+  }
+
+  return { valid: true, totalRubricMarks: total, maxRubricMarks: maxTotal };
+};
 
 /* ------------------------- ADD MARKS ------------------------- */
 export const addMarks = async (req, res) => {
@@ -15,7 +75,11 @@ export const addMarks = async (req, res) => {
     const activity = await Activity.findById(activityId);
     if (!activity) return res.status(404).json({ error: "Activity not found" });
 
-    const totalRubricMarks = rubricMarks.reduce((sum, r) => sum + r.marks, 0);
+    const validation = await validateRubricSubmission(activityId, rubricMarks);
+    if (!validation.valid) {
+      return res.status(400).json({ error: validation.message });
+    }
+    const { totalRubricMarks } = validation;
 
     // Fetch or create student-subject marks
     let doc = await StudentSubjectMarks.findOne({ studentId, subjectId });
@@ -77,9 +141,13 @@ export const updateMarks = async (req, res) => {
     }
 
     // Update rubric marks
-    if (rubricMarks) {
+    if (Array.isArray(rubricMarks)) {
+      const validation = await validateRubricSubmission(activityId, rubricMarks);
+      if (!validation.valid) {
+        return res.status(400).json({ error: validation.message });
+      }
       activityEntry.rubricMarks = rubricMarks;
-      activityEntry.totalRubricMarks = rubricMarks.reduce((s, r) => s + r.marks, 0);
+      activityEntry.totalRubricMarks = validation.totalRubricMarks;
     }
 
     // Recalculate total marks
