@@ -19,11 +19,21 @@ function EditActivity() {
   const [rubricDirty, setRubricDirty] = useState(false);
   const [marksValue, setMarksValue] = useState(0);
   const [marksDirty, setMarksDirty] = useState(false);
+  const [siblingMarksLocked, setSiblingMarksLocked] = useState(false);
 
   const simpleRubric = useMemo(() => rubricRows.length <= 1, [rubricRows]);
-  const marksLocked = useMemo(
-    () => activity.status === 'Conducted' || activity.status === 'Marks_Updated',
+
+  // Lock based on THIS activity's own status
+  const ownLocked = useMemo(
+    () =>
+      activity.status === "Conducted" || activity.status === "Marks_Updated",
     [activity.status]
+  );
+
+  // Rubric/marks are locked if this activity is locked OR a sibling already has final marks
+  const rubricLocked = useMemo(
+    () => ownLocked || siblingMarksLocked,
+    [ownLocked, siblingMarksLocked]
   );
 
   const fetchActivity = useCallback(async () => {
@@ -41,6 +51,29 @@ function EditActivity() {
       setMarksValue(0);
     }
     setMarksDirty(false);
+
+    // Check sibling activities (same assignmentId) to see if any are Conducted or have final marks
+    try {
+      if (act.assignmentId) {
+        const siblingsRes = await API.get(
+          `/activities/by-assignment/${act.assignmentId}`
+        );
+        const siblings = Array.isArray(siblingsRes.data.activities)
+          ? siblingsRes.data.activities
+          : [];
+        const hasLockedSibling = siblings.some(
+          (a) =>
+            a._id !== act._id &&
+            (a.status === "Conducted" || a.status === "Marks_Updated")
+        );
+        setSiblingMarksLocked(hasLockedSibling);
+      } else {
+        setSiblingMarksLocked(false);
+      }
+    } catch (err) {
+      console.error("Error checking sibling activities", err);
+      setSiblingMarksLocked(false);
+    }
   }, [id]);
 
 
@@ -53,8 +86,8 @@ function EditActivity() {
       description: activity.description,
     };
 
-    // Only include scheduleDate when activity is not already Conducted/Marks_Updated
-    if (!(activity.status === 'Conducted' || activity.status === 'Marks_Updated')) {
+    // Only include scheduleDate when THIS activity is not already Conducted/Marks_Updated
+    if (!ownLocked) {
       // normalize to full ISO in UTC interpreting the input as Asia/Kolkata local time
       if (activity.scheduleDate) {
         const iso = parseKolkataInputToISOString(activity.scheduleDate);
@@ -64,7 +97,7 @@ function EditActivity() {
       }
     }
 
-    if (!marksLocked) {
+    if (!rubricLocked) {
       if (simpleRubric) {
         if (marksDirty) {
           const numericMarks = Number(marksValue);
@@ -126,9 +159,17 @@ useEffect(() => {
 
         <div className="form-row">
           <label>Schedule Date & Time</label>
-          <input type="datetime-local" value={activity.scheduleDate ? formatToKolkataInput(activity.scheduleDate) : ''} onChange={(e) => setActivity({ ...activity, scheduleDate: e.target.value })} required disabled={marksLocked} />
-          {marksLocked && (
-            <small style={{ color: '#666' }}>Cannot change schedule after activity is Conducted or Marks Updated.</small>
+          <input
+            type="datetime-local"
+            value={activity.scheduleDate ? formatToKolkataInput(activity.scheduleDate) : ''}
+            onChange={(e) => setActivity({ ...activity, scheduleDate: e.target.value })}
+            required
+            disabled={ownLocked}
+          />
+          {ownLocked && (
+            <small style={{ color: '#666' }}>
+              Cannot change schedule after this activity is Conducted or Marks Updated.
+            </small>
           )}
         </div>
 
@@ -144,10 +185,12 @@ useEffect(() => {
                 setMarksValue(e.target.value);
                 setMarksDirty(true);
               }}
-              disabled={marksLocked}
+              disabled={rubricLocked}
             />
-            {marksLocked && (
-              <small style={{ color: '#666' }}>Marks locked once the activity is Conducted or graded.</small>
+            {rubricLocked && (
+              <small style={{ color: '#666' }}>
+                Marks locked once this activity or its sibling activity has final marks.
+              </small>
             )}
           </div>
         ) : (
@@ -164,7 +207,7 @@ useEffect(() => {
                     setRubricRows(next);
                     setRubricDirty(true);
                   }}
-                  disabled={marksLocked}
+                  disabled={rubricLocked}
                 />
                 <input
                   type="number"
@@ -178,12 +221,14 @@ useEffect(() => {
                     setRubricDirty(true);
                   }}
                   style={{ width: 120 }}
-                  disabled={marksLocked}
+                  disabled={rubricLocked}
                 />
               </div>
             ))}
-            {marksLocked && (
-              <small style={{ color: '#666' }}>Rubric locked once the activity is Conducted or graded.</small>
+            {rubricLocked && (
+              <small style={{ color: '#666' }}>
+                Rubric locked once this activity or its sibling activity has final marks.
+              </small>
             )}
           </div>
         )}
