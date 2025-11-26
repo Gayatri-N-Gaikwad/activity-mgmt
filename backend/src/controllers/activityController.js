@@ -170,7 +170,15 @@ export const getActivitiesByAssignment = async (req, res) => {
 export const updateActivity = async (req, res) => {
   try {
     const user = req.user;
-    const { name, description, status, scheduleDate, statusChangeReason, rubric } = req.body;
+    const {
+      name,
+      description,
+      status,
+      scheduleDate,
+      statusChangeReason,
+      rubric,
+      marks
+    } = req.body;
 
     // fetch existing activity
     const activity = await Activity.findById(req.params.id);
@@ -227,6 +235,59 @@ export const updateActivity = async (req, res) => {
       } else if (Array.isArray(rubric) && rubric.length === 0) {
         await RubricCriteria.deleteMany({ activityId: activity._id });
       }
+    }
+
+    // ---------------- Simple marks update (single rubric) ----------------
+    if (marks !== undefined) {
+      const numericMarks = Number(marks);
+      if (Number.isNaN(numericMarks)) {
+        return res.status(400).json({ error: "Marks must be a numeric value" });
+      }
+
+      if (numericMarks <= 0) {
+        return res.status(400).json({ error: "Marks must be greater than zero" });
+      }
+
+      if (numericMarks >= 15) {
+        return res.status(400).json({ error: "Keep at least 1 mark reserved for the second activity (max 14)" });
+      }
+
+      const marksExist = await StudentActivityMarks.exists({ activityId: activity._id });
+      if (marksExist) {
+        return res.status(400).json({ error: "Cannot change marks after students have been graded" });
+      }
+
+      const assignmentId = activity.assignmentId;
+      if (!assignmentId) {
+        return res.status(400).json({ error: "Activity is missing assignment linkage" });
+      }
+
+      const siblings = await Activity.find({ assignmentId });
+      const other = siblings.find(a => a._id.toString() !== activity._id.toString());
+
+      if (other) {
+        const otherMarksExist = await StudentActivityMarks.exists({ activityId: other._id });
+        if (otherMarksExist) {
+          return res.status(400).json({ error: "Cannot rebalance marks: sibling activity already has student marks" });
+        }
+
+        const siblingMarks = 15 - numericMarks;
+        if (siblingMarks <= 0) {
+          return res.status(400).json({ error: "At least 1 mark must remain for the sibling activity" });
+        }
+
+        await RubricCriteria.findOneAndUpdate(
+          { activityId: other._id },
+          { name: other.name || "Activity", maxMarks: siblingMarks },
+          { upsert: true, new: true }
+        );
+      }
+
+      await RubricCriteria.findOneAndUpdate(
+        { activityId: activity._id },
+        { name: name || activity.name || "Activity", maxMarks: numericMarks },
+        { upsert: true, new: true }
+      );
     }
 
     // ---------------- Update activity ----------------
