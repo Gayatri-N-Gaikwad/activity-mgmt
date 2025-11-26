@@ -186,6 +186,18 @@ export const updateActivity = async (req, res) => {
 
     // ---------------- Status validation ----------------
     if (status !== undefined && status !== activity.status) {
+      const statusFlow = {
+        Scheduled: ['Conducted'],
+        Conducted: ['Marks_Updated'],
+        Marks_Updated: []
+      };
+      const allowedTargets = statusFlow[activity.status] || [];
+      if (!allowedTargets.includes(status)) {
+        return res.status(400).json({
+          error: `Cannot change status from ${activity.status} to ${status}`
+        });
+      }
+
       if (status === 'Conducted') {
         if (!activity.scheduleDate) {
           return res.status(400).json({ error: 'Cannot mark as Conducted: activity has no scheduled date' });
@@ -193,6 +205,17 @@ export const updateActivity = async (req, res) => {
         const sched = new Date(activity.scheduleDate).getTime();
         if (isNaN(sched) || sched > Date.now()) {
           return res.status(400).json({ error: 'Cannot mark as Conducted before scheduled date/time' });
+        }
+      }
+
+      if (status === 'Marks_Updated') {
+        const marksExist = await StudentSubjectMarks.exists({
+          "activities.activityId": activity._id
+        });
+        if (!marksExist) {
+          return res.status(400).json({
+            error: 'Add marks for at least one student before marking as Marks Updated'
+          });
         }
       }
       if (statusChangeReason) {

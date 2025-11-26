@@ -4,6 +4,18 @@ import API from "../../services/api";
 import StatusConfirmModal from "../../components/StatusConfirmModal";
 import showToast from "../../utils/toast";
 
+const STATUS_OPTIONS = [
+  { value: "Scheduled", label: "Scheduled" },
+  { value: "Conducted", label: "Conducted" },
+  { value: "Marks_Updated", label: "Marks Updated" },
+];
+
+const STATUS_TRANSITIONS = {
+  Scheduled: ["Conducted"],
+  Conducted: ["Marks_Updated"],
+  Marks_Updated: [],
+};
+
 function ActivityList() {
   const [activities, setActivities] = useState([]);
   const [role, setRole] = useState("");
@@ -60,6 +72,11 @@ function ActivityList() {
 
   function handleStatusChangeRequest(act, newStatus) {
     if (!act || newStatus === act.status) return;
+    const allowed = STATUS_TRANSITIONS[act.status] || [];
+    if (!allowed.includes(newStatus)) {
+      showToast("error", `Cannot change status from ${act.status} to ${newStatus}`);
+      return;
+    }
 
     const now = Date.now();
 
@@ -188,9 +205,15 @@ function ActivityList() {
                       value={act.status}
                       onChange={(e) => handleStatusChangeRequest(act, e.target.value)}
                     >
-                      <option value="Scheduled">Scheduled</option>
-                      <option value="Conducted">Conducted</option>
-                      <option value="Marks_Updated">Marks Updated</option>
+                      {STATUS_OPTIONS.map((opt) => {
+                        const allowedTargets = STATUS_TRANSITIONS[act.status] || [];
+                        const disabled = opt.value !== act.status && !allowedTargets.includes(opt.value);
+                        return (
+                          <option key={opt.value} value={opt.value} disabled={disabled}>
+                            {opt.label}
+                          </option>
+                        );
+                      })}
                     </select>
                   </td>
 
