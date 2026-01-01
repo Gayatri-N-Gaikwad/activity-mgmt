@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import API from "../services/api";
-import showToast from "../utils/toast";
 
 function DashboardPage() {
   const user = JSON.parse(localStorage.getItem("user"));
@@ -9,6 +8,8 @@ function DashboardPage() {
   const [students, setStudents] = useState([]);
   const [marksData, setMarksData] = useState({});
   const [loading, setLoading] = useState(true);
+
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -52,7 +53,6 @@ function DashboardPage() {
                 ...marksMap[studentId],
                 [sub._id]: {
                   activities: m.activities || [],
-                  attendanceMarks: m.attendanceMarks || 0,
                   totalMarks: m.totalMarks || 0,
                 },
               };
@@ -71,44 +71,9 @@ function DashboardPage() {
     };
 
     fetchAll();
-  }, [user?.id]);
+  }, [user?.id, refreshKey]);
 
-  // Handle attendance input change
-  const handleAttendanceChange = (studentId, subjectId, value) => {
-    setMarksData((prev) => ({
-      ...prev,
-      [studentId]: {
-        ...prev[studentId],
-        [subjectId]: {
-          ...prev[studentId]?.[subjectId],
-          attendanceMarks: Number(value),
-        },
-      },
-    }));
-  };
-
-  // Save attendance
-  const saveSubjectAttendance = async (classId, subjectId) => {
-    try {
-      const classStudents = students.filter((s) => s.classId === classId);
-
-      for (const stu of classStudents) {
-        const data = marksData[stu._id]?.[subjectId];
-        if (!data) continue;
-
-        await API.put("/student-subject-marks/update-attendance", {
-          studentId: stu._id,
-          subjectId,
-          attendanceMarks: data.attendanceMarks,
-        });
-      }
-
-      showToast("success", "Attendance updated successfully");
-    } catch (err) {
-      console.error(err);
-      showToast("error", "Failed to update attendance");
-    }
-  };
+  // Removed attendance handling functions
 
   if (loading) return <div>Loading...</div>;
 
@@ -117,6 +82,14 @@ function DashboardPage() {
       <h2 style={{ textAlign: "center", marginBottom: "30px" }}>
         Dashboard - Welcome {user?.name} 👋
       </h2>
+      <div style={{ textAlign: "center", marginBottom: "20px" }}>
+        <button 
+          onClick={() => setRefreshKey(prev => prev + 1)} 
+          style={{ padding: "10px 20px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "5px", cursor: "pointer" }}
+        >
+          Refresh Data
+        </button>
+      </div>
 
       {classes.length === 0 && <p>No classes assigned.</p>}
 
@@ -143,11 +116,13 @@ function DashboardPage() {
                 >
                   <thead>
                     <tr>
+                      <th>Roll No</th>
                       <th>Student</th>
                       <th>Activity 1</th>
+                      <th>Activity 1 Attendance</th>
                       <th>Activity 2</th>
-                      <th>Attendance (out of 5)</th>
-                      <th>Total (out of 20)</th>
+                      <th>Activity 2 Attendance</th>
+                      <th>Total (out of 15)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -155,52 +130,37 @@ function DashboardPage() {
                       const data =
                         marksData[stu._id]?.[sub._id] || {
                           activities: [],
-                          attendanceMarks: 0,
                           totalMarks: 0,
                         };
 
-                      const act1 = data.activities?.[0]?.totalRubricMarks || 0;
-                      const act2 = data.activities?.[1]?.totalRubricMarks || 0;
-                      const attendance = data.attendanceMarks || 0;
+                      const act1Data = data.activities?.[0];
+                      const act2Data = data.activities?.[1];
+                      
+                      const act1Marks = act1Data?.totalRubricMarks || 0;
+                      const act1Attendance = act1Data?.attendance || 'Present';
+                      
+                      const act2Marks = act2Data?.totalRubricMarks || 0;
+                      const act2Attendance = act2Data?.attendance || 'Present';
 
-                      const total = act1 + act2 + attendance;
+                      // Calculate total (only include marks from present students)
+                      const act1Numeric = act1Attendance === 'Present' ? act1Marks : 0;
+                      const act2Numeric = act2Attendance === 'Present' ? act2Marks : 0;
+                      const total = act1Numeric + act2Numeric;
 
                       return (
                         <tr key={stu._id}>
+                          <td>{stu.rollNumber}</td>
                           <td>{stu.name}</td>
-                          <td>{act1}</td>
-                          <td>{act2}</td>
-
-                          <td>
-                            <input
-                              type="number"
-                              min="0"
-                              max="5"
-                              value={attendance}
-                              onChange={(e) =>
-                                handleAttendanceChange(
-                                  stu._id,
-                                  sub._id,
-                                  e.target.value
-                                )
-                              }
-                              style={{ width: 50 }}
-                            />
-                          </td>
-
+                          <td>{act1Marks}</td>
+                          <td>{act1Attendance}</td>
+                          <td>{act2Marks}</td>
+                          <td>{act2Attendance}</td>
                           <td>{total}</td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
-
-                <button
-                  className="btn btn-primary mt-2"
-                  onClick={() => saveSubjectAttendance(cls._id, sub._id)}
-                >
-                  Save Attendance for {sub.name}
-                </button>
               </div>
             );
           })}

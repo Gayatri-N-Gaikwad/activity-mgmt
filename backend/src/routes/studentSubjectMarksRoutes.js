@@ -1,8 +1,7 @@
 import express from "express";
-import { updateAttendance } from "../controllers/studentSubjectMarksController.js";
 
 const router = express.Router();
 
-router.put("/update-attendance", updateAttendance);
+// Removed update-attendance route
 
 export default router;

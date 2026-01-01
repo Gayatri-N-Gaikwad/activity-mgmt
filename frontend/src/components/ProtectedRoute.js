@@ -1,16 +1,17 @@
 import React from "react";
 import { Navigate } from "react-router-dom";
+import { checkAuthStatus } from "../services/api";
 
-// This wrapper checks if a token exists before rendering a page
+// This wrapper checks if a token exists and is valid before rendering a page
 function ProtectedRoute({ children }) {
-  const token = localStorage.getItem("token");
+  const isAuthenticated = checkAuthStatus();
 
-  if (!token) {
-    // ❌ Not logged in → redirect to login page
+  if (!isAuthenticated) {
+    // ❌ Not logged in or token expired → redirect to login page
     return <Navigate to="/login" replace />;
   }
 
-  // ✅ Logged in → show the requested page
+  // ✅ Logged in with valid token → show the requested page
   return children;
 }
 

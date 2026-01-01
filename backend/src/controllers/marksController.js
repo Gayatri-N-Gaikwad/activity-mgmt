@@ -33,26 +33,26 @@ const validateRubricSubmission = async (activityId, rubricMarks = []) => {
   let total = 0;
   for (const entry of rubricMarks) {
     const criteriaId = entry?.criteriaId?.toString();
-    const marksValue = Number(entry?.marks ?? 0);
+    const marksValue = entry?.marks;
 
     if (!criteriaId || !criteriaMap.has(criteriaId)) {
       return { valid: false, message: "Invalid rubric criteria supplied" };
     }
 
-    if (Number.isNaN(marksValue)) {
+    const numericValue = Number(marksValue ?? 0);
+    if (Number.isNaN(numericValue)) {
       return { valid: false, message: "Marks must be numeric values" };
     }
-
-    if (marksValue < 0) {
+    if (numericValue < 0) {
       return { valid: false, message: "Marks cannot be negative" };
     }
 
     const { name, maxMarks } = criteriaMap.get(criteriaId);
-    if (marksValue > maxMarks) {
+    if (numericValue > maxMarks) {
       return { valid: false, message: `Marks for ${name} cannot exceed ${maxMarks}` };
     }
 
-    total += marksValue;
+    total += numericValue;
   }
 
   if (total > maxTotal) {
@@ -65,21 +65,37 @@ const validateRubricSubmission = async (activityId, rubricMarks = []) => {
 /* ------------------------- ADD MARKS ------------------------- */
 export const addMarks = async (req, res) => {
   try {
-    const { studentId, activityId, rubricMarks, attendanceMarks = 0, subjectId, classId } = req.body;
+    const { studentId, activityId, rubricMarks, attendance = 'Present', subjectId, classId } = req.body;
 
     //  Validate required fields
     if (!studentId) return res.status(400).json({ error: "studentId is required" });
     if (!activityId) return res.status(400).json({ error: "activityId is required" });
     if (!subjectId) return res.status(400).json({ error: "subjectId is required" });
 
+    // Validate attendance
+    if (!['Present', 'Absent'].includes(attendance)) {
+      return res.status(400).json({ error: "Attendance must be either 'Present' or 'Absent'" });
+    }
+
     const activity = await Activity.findById(activityId);
     if (!activity) return res.status(404).json({ error: "Activity not found" });
 
-    const validation = await validateRubricSubmission(activityId, rubricMarks);
-    if (!validation.valid) {
-      return res.status(400).json({ error: validation.message });
+    // If student is absent, ensure no marks are provided
+    if (attendance === 'Absent') {
+      const hasMarks = rubricMarks.some(r => Number(r.marks || 0) > 0);
+      if (hasMarks) {
+        return res.status(400).json({ error: "Cannot enter marks for absent students" });
+      }
+    } else {
+      // Validate marks for present students
+      const validation = await validateRubricSubmission(activityId, rubricMarks);
+      if (!validation.valid) {
+        return res.status(400).json({ error: validation.message });
+      }
     }
-    const { totalRubricMarks } = validation;
+
+    const totalRubricMarks = attendance === 'Present' ? 
+      (await validateRubricSubmission(activityId, rubricMarks)).totalRubricMarks : 0;
 
     // Fetch or create student-subject marks
     let doc = await StudentSubjectMarks.findOne({ studentId, subjectId });
@@ -89,7 +105,6 @@ export const addMarks = async (req, res) => {
         studentId,
         subjectId,
         classId,
-        attendanceMarks,
         activities: []
       });
     }
@@ -104,13 +119,12 @@ export const addMarks = async (req, res) => {
     doc.activities.push({
       activityId,
       rubricMarks,
-      totalRubricMarks
+      totalRubricMarks,
+      attendance
     });
 
     // Update totalMarks
-    doc.totalMarks =
-      doc.attendanceMarks +
-      doc.activities.reduce((sum, a) => sum + a.totalRubricMarks, 0);
+    doc.totalMarks = doc.activities.reduce((sum, a) => sum + a.totalRubricMarks, 0);
 
     await doc.save();
     res.status(201).json(doc);
@@ -125,7 +139,7 @@ export const addMarks = async (req, res) => {
 export const updateMarks = async (req, res) => {
   try {
     const { studentSubjectMarksId, activityId } = req.params;
-    const { rubricMarks, attendanceMarks } = req.body;
+    const { rubricMarks, attendance } = req.body;
 
     const doc = await StudentSubjectMarks.findById(studentSubjectMarksId);
     if (!doc) return res.status(404).json({ error: "Document not found" });
@@ -135,25 +149,39 @@ export const updateMarks = async (req, res) => {
       return res.status(404).json({ error: "Activity marks not found" });
     }
 
-    // Update attendance (if provided)
-    if (attendanceMarks !== undefined) {
-      doc.attendanceMarks = attendanceMarks;
+    // Validate attendance
+    if (attendance && !['Present', 'Absent'].includes(attendance)) {
+      return res.status(400).json({ error: "Attendance must be either 'Present' or 'Absent'" });
+    }
+
+    // Update attendance if provided
+    if (attendance && ['Present', 'Absent'].includes(attendance)) {
+      activityEntry.attendance = attendance;
     }
 
     // Update rubric marks
     if (Array.isArray(rubricMarks)) {
-      const validation = await validateRubricSubmission(activityId, rubricMarks);
-      if (!validation.valid) {
-        return res.status(400).json({ error: validation.message });
+      // If student is absent, ensure no marks are provided
+      if (activityEntry.attendance === 'Absent') {
+        const hasMarks = rubricMarks.some(r => Number(r.marks || 0) > 0);
+        if (hasMarks) {
+          return res.status(400).json({ error: "Cannot enter marks for absent students" });
+        }
+        activityEntry.rubricMarks = rubricMarks;
+        activityEntry.totalRubricMarks = 0;
+      } else {
+        // Validate marks for present students
+        const validation = await validateRubricSubmission(activityId, rubricMarks);
+        if (!validation.valid) {
+          return res.status(400).json({ error: validation.message });
+        }
+        activityEntry.rubricMarks = rubricMarks;
+        activityEntry.totalRubricMarks = validation.totalRubricMarks;
       }
-      activityEntry.rubricMarks = rubricMarks;
-      activityEntry.totalRubricMarks = validation.totalRubricMarks;
     }
 
     // Recalculate total marks
-    doc.totalMarks =
-      doc.attendanceMarks +
-      doc.activities.reduce((sum, a) => sum + a.totalRubricMarks, 0);
+    doc.totalMarks = doc.activities.reduce((sum, a) => sum + a.totalRubricMarks, 0);
 
     await doc.save();
     res.json(doc);
@@ -175,9 +203,7 @@ export const deleteMarks = async (req, res) => {
     doc.activities = doc.activities.filter(a => a.activityId.toString() !== activityId);
 
     // Recalculate totalMarks
-    doc.totalMarks =
-      doc.attendanceMarks +
-      doc.activities.reduce((sum, a) => sum + a.totalRubricMarks, 0);
+    doc.totalMarks = doc.activities.reduce((sum, a) => sum + a.totalRubricMarks, 0);
 
     await doc.save();
     res.json({ message: "Activity marks deleted", doc });

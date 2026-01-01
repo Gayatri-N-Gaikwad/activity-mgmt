@@ -24,7 +24,8 @@ const app = express();
 // 🔹 CORS Configuration
 // --------------------
 const allowedOrigins = [
-  "http://localhost:3000",                // for local dev
+  "http://localhost:3000",                // for local dev (default port)
+  "http://localhost:3001",                // for local dev (alternative port)
   process.env.FRONTEND_URL                // your Netlify URL (set in Render env vars)
 ].filter(Boolean); // remove undefined
 

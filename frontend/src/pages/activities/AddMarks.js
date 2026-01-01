@@ -66,16 +66,18 @@ function AddMarks() {
           const existing = existingMarks.find(
             (m) => (m.studentId?._id || m.studentId) === student._id
           );
+          const existingActivity = existing?.activities.find(a => a.activityId === activityId);
+          
           initialMarks[student._id] = {
             rubricMarks: rubric.map((r) => ({
               criteriaId: r._id,
               name: r.name,
               maxMarks: r.maxMarks,
-              marks: existing
-                ? existing.rubricMarks.find(rr => rr.criteriaId._id === r._id)?.marks || 0
+              marks: existingActivity
+                ? existingActivity.rubricMarks.find(rr => rr.criteriaId._id === r._id)?.marks || 0
                 : 0,
             })),
-            attendanceMarks: existing?.attendanceMarks || 0,
+            attendance: existingActivity?.attendance || 'Present',
             exists: !!existing,
             id: existing?._id,
           };
@@ -94,9 +96,10 @@ function AddMarks() {
   }, [activityId]);
 
   const handleRubricChange = (studentId, index, value) => {
+    const numericValue = value === "" ? 0 : Number(value);
     setMarksData((prev) => {
       const newRubric = [...prev[studentId].rubricMarks];
-      newRubric[index].marks = Number(value);
+      newRubric[index].marks = numericValue;
       return {
         ...prev,
         [studentId]: { ...prev[studentId], rubricMarks: newRubric },
@@ -104,17 +107,39 @@ function AddMarks() {
     });
   };
 
-  // const handleAttendanceChange = (studentId, value) => {
-  //   setMarksData((prev) => ({
-  //     ...prev,
-  //     [studentId]: { ...prev[studentId], attendanceMarks: Number(value) },
-  //   }));
-  // };
+  const handleAttendanceChange = (studentId, value) => {
+    setMarksData((prev) => {
+      const updated = { ...prev[studentId], attendance: value };
+      
+      // If marking as absent, clear all marks
+      if (value === 'Absent') {
+        updated.rubricMarks = updated.rubricMarks.map(r => ({ ...r, marks: 0 }));
+      }
+      
+      return {
+        ...prev,
+        [studentId]: updated,
+      };
+    });
+  };
 
   const submitAllMarks = async () => {
     const violations = [];
 
     Object.entries(marksData).forEach(([studentId, payload]) => {
+      // Check if student is marked absent but has marks entered
+      if (payload.attendance === 'Absent') {
+        const hasMarks = payload.rubricMarks.some(r => r.marks > 0);
+        if (hasMarks) {
+          const student = students.find((s) => s._id === studentId);
+          violations.push(
+            `${student?.name || "Student"} is marked as Absent but has marks entered`
+          );
+        }
+        return; // Skip further validation for absent students
+      }
+
+      // Validate marks for present students
       payload?.rubricMarks?.forEach((r) => {
         const entered = Number(r.marks ?? 0);
         const allowed = Number(r.maxMarks ?? 0);
@@ -145,12 +170,16 @@ function AddMarks() {
             criteriaId: r.criteriaId,
             marks: r.marks,
           })),
+          attendance: payload.attendance || 'Present',
           subjectId,
           classId,
         };
 
         if (payload.exists) {
-          await API.put(`/marks/update/${payload.id}`, data);
+          await API.put(`/marks/update/${payload.id}/${activityId}`, {
+            rubricMarks: data.rubricMarks,
+            attendance: data.attendance
+          });
         } else {
           const res = await API.post(`/marks/add`, { studentId, activityId, ...data });
           setMarksData((prev) => ({
@@ -186,6 +215,7 @@ function AddMarks() {
               {activity.rubric.map((r) => (
                 <th key={r._id}>{r.name} (out of {r.maxMarks})</th>
               ))}
+              <th>Attendance</th>
             </tr>
           </thead>
           <tbody>
@@ -200,14 +230,25 @@ function AddMarks() {
                     <td key={r.criteriaId}>
                       <input
                         type="number"
-                        min="0"
-                        max={r.maxMarks}
                         value={r.marks}
                         onChange={(e) => handleRubricChange(student._id, idx, e.target.value)}
-                        style={{ width: 60 }}
+                        min="0"
+                        max={r.maxMarks}
+                        disabled={data.attendance === 'Absent'}
+                        style={{ width: 60, opacity: data.attendance === 'Absent' ? 0.5 : 1 }}
                       />
                     </td>
                   ))}
+                  <td>
+                    <select
+                      value={data.attendance}
+                      onChange={(e) => handleAttendanceChange(student._id, e.target.value)}
+                      style={{ width: 100 }}
+                    >
+                      <option value="Present">Present</option>
+                      <option value="Absent">Absent</option>
+                    </select>
+                  </td>
                 </tr>
               );
             })}

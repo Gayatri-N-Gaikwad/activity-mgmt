@@ -9,16 +9,16 @@ const activityMarksSchema = new Schema({
       marks: { type: Number, default: 0 }
     }
   ],
-  totalRubricMarks: { type: Number, default: 0 } // sum of rubricMarks
+  totalRubricMarks: { type: Number, default: 0 }, // sum of rubricMarks
+  attendance: { type: String, enum: ['Present', 'Absent'], default: 'Present' } // Attendance status
 }, { _id: false }); // keep activity subdocs without their own generated _id if you prefer
 
 const studentSubjectMarksSchema = new Schema({
   studentId: { type: Schema.Types.ObjectId, ref: "Student", required: true },
   subjectId: { type: Schema.Types.ObjectId, ref: "Subject", required: true },
   classId: { type: Schema.Types.ObjectId, ref: "Class", required: false }, // optional convenience
-  attendanceMarks: { type: Number, default: 0 }, // out of 5
   activities: [activityMarksSchema], // array of activity entries
-  totalMarks: { type: Number, default: 0 } // sum of totalRubricMarks + attendanceMarks
+  totalMarks: { type: Number, default: 0 } // sum of totalRubricMarks
 }, { timestamps: true });
 
 // unique per student + subject
