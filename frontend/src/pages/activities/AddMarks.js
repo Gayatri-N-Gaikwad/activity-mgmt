@@ -66,17 +66,20 @@ function AddMarks() {
           const existing = existingMarks.find(
             (m) => (m.studentId?._id || m.studentId) === student._id
           );
-          const existingActivity = existing?.activities.find(a => a.activityId === activityId);
+          const existingActivity = existing?.activities.find(a => (a.activityId?._id || a.activityId) === activityId);
           
           initialMarks[student._id] = {
-            rubricMarks: rubric.map((r) => ({
-              criteriaId: r._id,
-              name: r.name,
-              maxMarks: r.maxMarks,
-              marks: existingActivity
-                ? existingActivity.rubricMarks.find(rr => rr.criteriaId._id === r._id)?.marks || 0
-                : 0,
-            })),
+            rubricMarks: rubric.map((r) => {
+              const existingMark = existingActivity?.rubricMarks.find(
+                (rm) => (rm.criteriaId?._id || rm.criteriaId) === r._id
+              );
+              return {
+                criteriaId: r._id,
+                name: r.name,
+                maxMarks: r.maxMarks,
+                marks: existingMark?.marks || 0,
+              };
+            }),
             attendance: existingActivity?.attendance || 'Present',
             exists: !!existing,
             id: existing?._id,

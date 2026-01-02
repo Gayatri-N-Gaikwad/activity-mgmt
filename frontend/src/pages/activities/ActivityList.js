@@ -70,6 +70,28 @@ function ActivityList() {
     }
   };
 
+  const downloadActivityMarks = async (activityId, activityName) => {
+    try {
+      const response = await API.get(`/marks/download/${activityId}`, {
+        responseType: 'blob'
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${activityName}_Marks.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      showToast('success', 'Marks downloaded successfully');
+    } catch (err) {
+      console.error('Download error:', err);
+      showToast('error', 'Error downloading marks');
+    }
+  };
+
   function handleStatusChangeRequest(act, newStatus) {
     if (!act || newStatus === act.status) return;
     const allowed = STATUS_TRANSITIONS[act.status] || [];
@@ -223,11 +245,22 @@ function ActivityList() {
                       Edit
                     </Link>
 
-                    {act.status === "Conducted" && (
+                    {(act.status === "Conducted" || act.status === "Marks_Updated") && (
                       <Link to={`/marks/activity/${act._id}`} className="btn btn-success" style={{ marginRight: 12 }}>
                         <i className="fa fa-plus" style={{ marginRight: 6 }}></i>
-                        Add Marks
+                        {act.status === "Marks_Updated" ? "Edit Marks" : "Add Marks"}
                       </Link>
+                    )}
+
+                    {act.status === "Marks_Updated" && (
+                      <button 
+                        onClick={() => downloadActivityMarks(act._id, act.name)} 
+                        className="btn btn-info" 
+                        style={{ marginRight: 12 }}
+                      >
+                        <i className="fa fa-download" style={{ marginRight: 6 }}></i>
+                        Download
+                      </button>
                     )}
 
                     <button onClick={() => deleteActivity(act._id)} className="btn btn-danger">

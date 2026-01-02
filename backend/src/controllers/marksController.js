@@ -1,6 +1,7 @@
 import StudentSubjectMarks from "../models/StudentSubjectMarks.js";
 import Activity from "../models/Activity.js";
 import RubricCriteria from "../models/RubricCriteria.js";
+import { createMarksExcel, createCombinedMarksExcel } from "../utils/excelExport.js";
 
 const validateRubricSubmission = async (activityId, rubricMarks = []) => {
   if (!activityId) {
@@ -224,9 +225,10 @@ export const getMarksByActivity = async (req, res) => {
     })
       .populate("studentId")
       .populate("subjectId")
+      .populate("activities.activityId")
       .lean();
 
-    res.json(docs);
+    res.json({ marks: docs });
 
   } catch (err) {
     console.error("Fetch error:", err);
@@ -280,5 +282,134 @@ export const getAllMarks = async (req, res) => {
   } catch (err) {
     console.error("Get all marks error:", err);
     res.status(500).json({ success: false, message: "Unable to fetch marks" });
+  }
+};
+
+/* ----------------------- DOWNLOAD MARKS AS EXCEL ----------------------- */
+
+export const downloadActivityMarks = async (req, res) => {
+  try {
+    const { activityId } = req.params;
+
+    // Fetch activity with details
+    const activity = await Activity.findById(activityId);
+    if (!activity) {
+      return res.status(404).json({ error: "Activity not found" });
+    }
+
+    // Fetch rubric criteria for this activity
+    const rubricCriteria = await RubricCriteria.find({ activityId });
+
+    // Fetch all marks for this activity
+    const marksData = await StudentSubjectMarks.find({
+      "activities.activityId": activityId
+    })
+      .populate("studentId", "name rollNumber")
+      .populate("subjectId", "name")
+      .lean();
+
+    // Transform data for Excel
+    const students = marksData.map((mark) => ({
+      _id: mark.studentId._id,
+      name: mark.studentId.name,
+      rollNumber: mark.studentId.rollNumber,
+      activities: mark.activities
+        .filter((a) => a.activityId.toString() === activityId)
+        .map((a) => ({
+          activityId: a.activityId,
+          totalRubricMarks: a.totalRubricMarks,
+          rubricMarks: a.rubricMarks,
+          attendance: a.attendance
+        }))
+    }));
+
+    const activitiesData = [{
+      _id: activity._id,
+      name: activity.name,
+      maxMarks: rubricCriteria.reduce((sum, r) => sum + r.maxMarks, 0),
+      rubric: rubricCriteria
+    }];
+
+    // Create Excel file
+    const buffer = await createMarksExcel({
+      students,
+      activities: activitiesData,
+      subject: marksData[0]?.subjectId?.name || "Subject",
+      className: "Class"
+    });
+
+    // Send file
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="Activity_${activity.name}_Marks.xlsx"`);
+    res.send(buffer);
+
+  } catch (err) {
+    console.error("Download activity marks error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const downloadMultipleActivitiesMarks = async (req, res) => {
+  try {
+    const { activityIds } = req.body;
+
+    if (!Array.isArray(activityIds) || activityIds.length === 0) {
+      return res.status(400).json({ error: "activityIds array is required" });
+    }
+
+    // Fetch all activities
+    const activities = await Activity.find({ _id: { $in: activityIds } });
+
+    if (activities.length === 0) {
+      return res.status(404).json({ error: "No activities found" });
+    }
+
+    // Fetch rubric for each activity
+    const rubricMap = {};
+    for (const activity of activities) {
+      const rubric = await RubricCriteria.find({ activityId: activity._id });
+      rubricMap[activity._id] = rubric;
+    }
+
+    // Fetch marks for all activities
+    const marksData = await StudentSubjectMarks.find({
+      "activities.activityId": { $in: activityIds }
+    })
+      .populate("studentId", "name rollNumber")
+      .populate("subjectId", "name")
+      .lean();
+
+    // Transform students data
+    const students = marksData.map((mark) => ({
+      _id: mark.studentId._id,
+      name: mark.studentId.name,
+      rollNumber: mark.studentId.rollNumber,
+      activities: mark.activities
+    }));
+
+    // Transform activities data
+    const activitiesData = activities.map((activity) => ({
+      _id: activity._id,
+      name: activity.name,
+      maxMarks: rubricMap[activity._id].reduce((sum, r) => sum + r.maxMarks, 0),
+      rubric: rubricMap[activity._id]
+    }));
+
+    // Create combined Excel file with multiple sheets
+    const buffer = await createCombinedMarksExcel({
+      students,
+      activities: activitiesData,
+      subject: marksData[0]?.subjectId?.name || "Subject",
+      className: "Class"
+    });
+
+    // Send file
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="Combined_Marks.xlsx"`);
+    res.send(buffer);
+
+  } catch (err) {
+    console.error("Download multiple marks error:", err);
+    res.status(500).json({ error: err.message });
   }
 };

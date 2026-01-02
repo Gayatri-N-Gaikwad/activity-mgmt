@@ -6,7 +6,9 @@ import {
   getMarksByActivity,
   getMarksByStudent,
   getAllMarks,
-  getMarksByClassSubject
+  getMarksByClassSubject,
+  downloadActivityMarks,
+  downloadMultipleActivitiesMarks
 } from "../controllers/marksController.js";
 
 const router = express.Router();
@@ -33,5 +35,11 @@ router.get("/class/:classId/subject/:subjectId", getMarksByClassSubject);
 
 // Get all marks (admin/debug)
 router.get("/", getAllMarks);
+
+// Download marks for single activity
+router.get("/download/:activityId", downloadActivityMarks);
+
+// Download marks for multiple activities combined
+router.post("/download-combined", downloadMultipleActivitiesMarks);
 
 export default router;

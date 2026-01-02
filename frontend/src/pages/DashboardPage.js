@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import API from "../services/api";
+import showToast from "../utils/toast";
 
 function DashboardPage() {
   const user = JSON.parse(localStorage.getItem("user"));
@@ -8,6 +9,8 @@ function DashboardPage() {
   const [students, setStudents] = useState([]);
   const [marksData, setMarksData] = useState({});
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
+  const [updatedActivitiesCount, setUpdatedActivitiesCount] = useState(0);
 
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -73,6 +76,89 @@ function DashboardPage() {
     fetchAll();
   }, [user?.id, refreshKey]);
 
+  // Fetch activities to check if both have Marks_Updated status
+  useEffect(() => {
+    const checkActivitiesStatus = async () => {
+      try {
+        const resActivities = await API.get("/activities/all");
+        const allActivities = resActivities.data.activities || [];
+
+        // Filter for Marks_Updated activities for this user
+        const updatedActivities = allActivities.filter(
+          (act) => act.status === "Marks_Updated" && String(act.coordinatorId) === String(user?.id)
+        );
+
+        setUpdatedActivitiesCount(updatedActivities.length);
+      } catch (err) {
+        console.error("Error checking activities status:", err);
+      }
+    };
+
+    if (user?.id) {
+      checkActivitiesStatus();
+    }
+  }, [user?.id, refreshKey]);
+
+  const downloadSubjectReport = async (classId, subjectId, subjectName, className) => {
+    try {
+      setDownloading(true);
+      
+      // Get activity IDs from marksData for this subject
+      const activityIdsSet = new Set();
+      
+      Object.values(marksData).forEach(studentMarks => {
+        if (studentMarks[subjectId]?.activities) {
+          studentMarks[subjectId].activities.forEach(activity => {
+            if (activity.activityId) {
+              activityIdsSet.add(activity.activityId);
+            }
+          });
+        }
+      });
+
+      if (activityIdsSet.size === 0) {
+        showToast('error', 'No marks available for this subject');
+        return;
+      }
+
+      // Verify that activities have "Marks_Updated" status
+      const resActivities = await API.get("/activities/all");
+      const allActivities = resActivities.data.activities || [];
+      
+      const validActivityIds = Array.from(activityIdsSet).filter(actId => {
+        const activity = allActivities.find(a => String(a._id) === String(actId));
+        return activity && activity.status === "Marks_Updated";
+      });
+
+      if (validActivityIds.length === 0) {
+        showToast('error', 'No activities with updated marks for this subject');
+        return;
+      }
+
+      const response = await API.post("/marks/download-combined", {
+        activityIds: validActivityIds
+      }, {
+        responseType: 'blob'
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${className}_${subjectName}_Report_${new Date().toLocaleDateString()}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      showToast('success', `Report for ${subjectName} downloaded successfully`);
+    } catch (err) {
+      console.error('Download error:', err);
+      showToast('error', 'Error downloading report');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   // Removed attendance handling functions
 
   if (loading) return <div>Loading...</div>;
@@ -85,10 +171,16 @@ function DashboardPage() {
       <div style={{ textAlign: "center", marginBottom: "20px" }}>
         <button 
           onClick={() => setRefreshKey(prev => prev + 1)} 
-          style={{ padding: "10px 20px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "5px", cursor: "pointer" }}
+          style={{ padding: "10px 20px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "5px", cursor: "pointer", marginRight: "10px" }}
         >
           Refresh Data
         </button>
+        
+        {updatedActivitiesCount < 2 && (
+          <p style={{ color: "#d9534f", marginTop: "10px", fontSize: "14px" }}>
+             Marks updated for {updatedActivitiesCount}/2 activities. Please update marks for both activities before downloading.
+          </p>
+        )}
       </div>
 
       {classes.length === 0 && <p>No classes assigned.</p>}
@@ -105,7 +197,27 @@ function DashboardPage() {
 
             return (
               <div key={sub._id} style={{ marginBottom: 20 }}>
-                <h4>{sub.name}</h4>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <h4>{sub.name}</h4>
+                  <button 
+                    onClick={() => downloadSubjectReport(cls._id, sub._id, sub.name, cls.name)}
+                    disabled={downloading}
+                    style={{
+                      padding: "8px 12px",
+                      backgroundColor: "#17a2b8",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "4px",
+                      cursor: downloading ? "not-allowed" : "pointer",
+                      fontSize: "14px",
+                      opacity: downloading ? 0.6 : 1
+                    }}
+                    title={`Download marks report for ${sub.name}`}
+                  >
+                    <i className="fa fa-download" style={{ marginRight: 6 }}></i>
+                    Download
+                  </button>
+                </div>
 
                 <table
                   style={{
