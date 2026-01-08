@@ -56,12 +56,12 @@ function App() {
 
           {/* ⭐ Admin Dashboard */}
           <Route
-            path="/teaching-assignment/assignments"
-            element={
-              <ProtectedRoute>
-                <AdminDashboard />
-              </ProtectedRoute>
-            }
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
           />
 
           {/* ⭐ Activity Module Routes */}
