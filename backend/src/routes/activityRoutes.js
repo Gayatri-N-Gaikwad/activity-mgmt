@@ -17,7 +17,7 @@ const router = express.Router();
 /*----------------------- CREATE ACTIVITY -----------------------*/
 router.post(
   "/create",
-  ensureRole(["Faculty", "Coordinator", "HOD"]),
+  ensureRole(["Faculty", "Coordinator", "HOD", "admin"]),
   createActivity
 );
 
@@ -37,21 +37,21 @@ router.get("/by-assignment/:assignmentId", getActivitiesByAssignment);
 /*----------------------- UPDATE ACTIVITY -----------------------*/
 router.put(
   "/update/:id",
-  ensureRole(["Faculty", "Coordinator", "HOD"]),
+  ensureRole(["Faculty", "Coordinator", "HOD", "admin"]),
   updateActivity
 );
 
 /*----------------------- SCHEDULE ACTIVITY -----------------------*/
 router.post(
   "/schedule/:id",
-  ensureRole(["Faculty", "Coordinator", "HOD"]),
+  ensureRole(["Faculty", "Coordinator", "HOD", "admin"]),
   scheduleActivity
 );
 
 /*----------------------- DELETE ACTIVITY -----------------------*/
 router.delete(
   "/delete/:id",
-  ensureRole(["Faculty", "Coordinator", "HOD"]),
+  ensureRole(["Faculty", "Coordinator", "HOD", "admin"]),
   deleteActivity
 );
 

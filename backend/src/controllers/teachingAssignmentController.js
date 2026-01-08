@@ -4,196 +4,196 @@ import Student from "../models/Student.js";
 import RubricCriteria from "../models/RubricCriteria.js";
 import StudentActivityMarks from "../models/StudentActivityMarks.js";
 
-/*  GET ALL ASSIGNMENTS FOR CLASS */
-export const getAssignmentsByClass = async (req, res) => {
+import Class from "../models/Class.js";
+
+import Subject from "../models/Subject.js";
+
+import User from "../models/User.js";
+
+
+
+// Controller to get all teaching assignments
+export const getAllTeachingAssignments = async (req, res) => {
   try {
-    const { classId } = req.params;
+    // Fetch all teaching assignments from the database
+    const assignments = await TeachingAssignment.find()
+      .populate("facultyId", "name email")   // optional: populate faculty info
+      .populate("subjectId", "name code")   // optional: populate subject info
+      .populate("classId", "name year");    // optional: populate class info
 
-    const assignment = await TeachingAssignment.find({ classId })
-      .populate("facultyId")
-      .populate("subjectId")
-      .populate("classId");
-
-    if (!assignment || assignment.length === 0) {
-      return res.status(404).json({ error: "No assignment found for this class" });
-    }
-
-    res.json({ assignment });
-  } catch (err) {
-    console.error("Error fetching by class:", err);
-    res.status(500).json({ error: "Server error" });
+    return res.status(200).json({
+      success: true,
+      count: assignments.length,
+      data: assignments
+    });
+  } catch (error) {
+    console.error("Error fetching teaching assignments:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server Error. Unable to fetch teaching assignments."
+    });
   }
 };
 
-/* GET STUDENTS BASED ON ACTIVITY CLASS */
-export const getStudentsByActivityClass = async (req, res) => {
-  try {
-    const { activityId } = req.params;
 
-    const activity = await Activity.findById(activityId);
-    if (!activity) {
-      return res.status(404).json({ error: "Activity not found" });
+
+// Controller to create a new class
+export const createClass = async (req, res) => {
+  try {
+    const { name } = req.body;
+
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        message: "Class name is required"
+      });
     }
 
-    const students = await Student.find({ classId: activity.classId })
-      .select("name rollNumber classId");
+    // Check if class already exists
+    const existingClass = await Class.findOne({ name });
+    if (existingClass) {
+      return res.status(409).json({
+        success: false,
+        message: "Class already exists"
+      });
+    }
 
-    res.json({ students });
-  } catch (err) {
-    console.error("Error fetching students for class:", err);
-    res.status(500).json({ error: "Server error fetching students" });
+    const newClass = await Class.create({ name });
+
+    return res.status(201).json({
+      success: true,
+      message: "Class created successfully",
+      data: newClass
+    });
+  } catch (error) {
+    console.error("Error creating class:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error. Unable to create class."
+    });
   }
 };
 
-/* GET TEACHING ASSIGNMENT BY ID */
-export const getTeachingAssignmentById = async (req, res) => {
-  try {
-    const assignment = await TeachingAssignment.findById(req.params.id)
-      .populate("facultyId")
-      .populate("subjectId")
-      .populate("classId");
 
-    if (!assignment) {
-      return res.status(404).json({ error: "Teaching assignment not found" });
+
+
+// Controller to create a new subject
+export const createSubject = async (req, res) => {
+  try {
+    const { name, code } = req.body;
+
+    if (!name || !code) {
+      return res.status(400).json({
+        success: false,
+        message: "Subject name and code are required"
+      });
     }
 
-    res.json({ assignment });
-  } catch (err) {
-    console.error("Error fetching assignment:", err);
-    res.status(500).json({ error: "Server error" });
+    // Check if subject code already exists
+    const existingSubject = await Subject.findOne({ code });
+    if (existingSubject) {
+      return res.status(409).json({
+        success: false,
+        message: "Subject with this code already exists"
+      });
+    }
+
+    const newSubject = await Subject.create({ name, code });
+
+    return res.status(201).json({
+      success: true,
+      message: "Subject created successfully",
+      data: newSubject
+    });
+  } catch (error) {
+    console.error("Error creating subject:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error. Unable to create subject."
+    });
   }
 };
 
-/* GET ASSIGNMENTS BY FACULTY */
-export const getAssignmentsByFaculty = async (req, res) => {
-  try {
-    const { facultyId } = req.params;
 
-    const assignments = await TeachingAssignment.find({ facultyId })
-      .populate("facultyId")
-      .populate("subjectId")
-      .populate("classId");
 
-    if (!assignments || assignments.length === 0) {
-      return res.status(404).json({ error: "No teaching assignments found" });
-    }
-
-    res.json(assignments);
-  } catch (err) {
-    console.error("Error fetching assignments by faculty:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-};
-
-/* CREATE NEW TEACHING ASSIGNMENT */
-export const createTeachingAssignment = async (req, res) => {
+// Assign subject and class to a faculty
+export const assignSubjectAndClassToFaculty = async (req, res) => {
   try {
     const { facultyId, subjectId, classId } = req.body;
 
+    // 1. Validate input
     if (!facultyId || !subjectId || !classId) {
-      return res.status(400).json({ error: "All fields are required" });
+      return res.status(400).json({
+        success: false,
+        message: "facultyId, subjectId, and classId are required",
+      });
     }
 
+    // 2. Check faculty exists and role
+    const faculty = await User.findById(facultyId);
+    if (!faculty) {
+      return res.status(404).json({
+        success: false,
+        message: "Faculty not found",
+      });
+    }
+
+    if (faculty.role !== "Faculty") {
+      return res.status(403).json({
+        success: false,
+        message: "User is not a faculty member",
+      });
+    }
+
+    // 3. Check subject exists
+    const subject = await Subject.findById(subjectId);
+    if (!subject) {
+      return res.status(404).json({
+        success: false,
+        message: "Subject not found",
+      });
+    }
+
+    // 4. Check class exists
+    const classObj = await Class.findById(classId);
+    if (!classObj) {
+      return res.status(404).json({
+        success: false,
+        message: "Class not found",
+      });
+    }
+
+    // 5. Prevent duplicate assignment
+    const existingAssignment = await TeachingAssignment.findOne({
+      facultyId,
+      subjectId,
+      classId,
+    });
+
+    if (existingAssignment) {
+      return res.status(409).json({
+        success: false,
+        message: "This subject is already assigned to this faculty for this class",
+      });
+    }
+
+    // 6. Create assignment
     const assignment = await TeachingAssignment.create({
       facultyId,
       subjectId,
-      classId
+      classId,
     });
 
-    res.status(201).json({ message: "Teaching assignment created", assignment });
-  } catch (err) {
-    console.error("Error creating teaching assignment:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-};
-
-/* GET MARKS BY CLASS AND SUBJECT */
-export const getMarksByClassSubject = async (req, res) => {
-  try {
-    const { classId, subjectId } = req.params;
-
-    // 1) Find assignment
-    const assignment = await TeachingAssignment.findOne({ classId, subjectId });
-    if (!assignment) return res.json({});
-
-    // 2) Find all activities under this assignment, sorted by scheduleDate
-    const activities = await Activity.find({ assignmentId: assignment._id })
-      .sort({ scheduleDate: 1 })
-      .lean();
-    if (!activities.length) return res.json({});
-
-    const activityIds = activities.map(a => a._id);
-
-    // 3) Fetch all marks
-    const marks = await StudentActivityMarks.find({
-      activityId: { $in: activityIds }
-    }).lean();
-
-    const result = {};
-
-    marks.forEach(m => {
-      const studentId = m.studentId.toString();
-      const activityId = m.activityId.toString();
-
-      if (!result[studentId]) {
-        result[studentId] = {
-          activityMarks: {}, // Use activityId as key
-          attendance: m.attendanceMarks || 0,
-          studentMarksIds: {},
-        };
-      }
-
-      // Map marks explicitly by activityId
-      result[studentId].activityMarks[activityId] = m.totalRubricMarks;
-      result[studentId].studentMarksIds[activityId] = m._id.toString();
-
-      // Attendance (same for all activities)
-      result[studentId].attendance = m.attendanceMarks;
+    return res.status(201).json({
+      success: true,
+      message: "Subject and class assigned to faculty successfully",
+      data: assignment,
     });
-
-    // Optional: send activities as well for frontend table order
-    res.json({ result, activities });
-
-  } catch (err) {
-    console.error("Error fetching marks:", err);
-    res.status(500).json({ error: "Server error fetching marks" });
-  }
-};
-
-
-/* GET SUBJECTS ASSIGNED  */
-export const getAssignedSubjects = async (req, res) => {
-  try {
-    const { classId, facultyId } = req.params;
-
-    const subjects = await TeachingAssignment.find({
-      classId,
-      facultyId
-    }).populate("subjectId");
-
-    return res.json({ subjects });
   } catch (error) {
-    console.error("Error in getAssignedSubjects:", error);
-    res.status(500).json({ message: "Server error fetching assigned subjects" });
+    console.error("Error assigning subject & class:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error. Unable to assign subject and class.",
+    });
   }
 };
-
-
-/* GET subjects assigned to faculty for a class  */
-export const getSubjectsByFacultyAndClass = async (req, res) => {
-  try {
-    const { classId, facultyId } = req.params;
-
-    const assignments = await TeachingAssignment.find({
-      classId,
-      facultyId,
-    }).populate("subjectId");
-
-    const subjects = assignments.map(a => a.subjectId);
-    return res.json({ data: subjects }); 
-  } catch (error) {
-    console.error("Error fetching subjects:", error);
-    return res.status(500).json({ message: "Server Error" });
-  }
-};
-
