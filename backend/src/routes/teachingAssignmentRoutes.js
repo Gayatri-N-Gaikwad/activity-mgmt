@@ -1,28 +1,35 @@
 import express from "express";
 import {
-  getAllTeachingAssignments,
-  createClass,
-  createSubject,
-  assignSubjectAndClassToFaculty 
+  getAssignmentsByClass,
+  getStudentsByActivityClass,
+  getTeachingAssignmentById,
+  createTeachingAssignment,
+  getAssignmentsByFaculty,
+  getSubjectsByFacultyAndClass,
+  getAssignedSubjects
 } from "../controllers/teachingAssignmentController.js";
-import { isAdmin } from "../middlewares/isAdmin.js";
 
 const router = express.Router();
 
-// GET all teaching assignments (admin only)
-router.get("/assignments", getAllTeachingAssignments);
-// router.get("/subjects", isAdmin, getAllTeachingAssignments);
+// GET subjects assigned to a faculty for a specific class
+router.get("/subjects/:facultyId/:classId", getSubjectsByFacultyAndClass);
 
-// Add new class
-router.post("/addclass", createClass);
+// GET students for an activity (based on class)
+router.get("/activity/:activityId/byclass", getStudentsByActivityClass);
 
-// Add new subject
-router.post("/addsubject", createSubject); 
+// GET all assigned subjects for a class & faculty
+router.get("/assigned/:classId/:facultyId", getAssignedSubjects);
 
-// Assign subject & class to a faculty
-router.post(
-  "/assign", // only admin can assign
-  assignSubjectAndClassToFaculty
-);
+// GET all assignments of a class
+router.get("/class/:classId", getAssignmentsByClass);
+
+// GET assignments for a faculty
+router.get("/byfaculty/:facultyId", getAssignmentsByFaculty);
+
+// GET assignment by ID (must stay at bottom to avoid capture)
+router.get("/:id", getTeachingAssignmentById);
+
+// CREATE new assignment
+router.post("/add", createTeachingAssignment);
 
 export default router;

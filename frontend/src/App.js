@@ -15,6 +15,7 @@ import CreateActivity from "./pages/activities/CreateActivity";
 import EditActivity from "./pages/activities/EditActivity";
 import ScheduleActivity from "./pages/activities/ScheduleActivity";
 import AddMarks from "./pages/activities/AddMarks";
+import ActivityDetails from "./pages/activities/ActivityDetails";
 
 // Admin
 import AdminDashboard from "./pages/AdminDashboard";
@@ -106,6 +107,15 @@ function App() {
             element={
               <ProtectedRoute>
                 <AddMarks />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/activity/details/:id"
+            element={
+              <ProtectedRoute>
+                <ActivityDetails />
               </ProtectedRoute>
             }
           />

@@ -2,6 +2,11 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import connectDB from "./config/db.js";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Import routes
 import authRoutes from "./routes/authRoutes.js";
@@ -13,6 +18,7 @@ import teachingAssignmentRoutes from "./routes/teachingAssignmentRoutes.js";
 import subjectRoutes from "./routes/subjectRoutes.js";
 import rubricRoutes from "./routes/rubricRoutes.js"
 import studentSubjectMarksRoutes from "./routes/studentSubjectMarksRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
 
 dotenv.config();
 console.log("✅ ENV file loaded");
@@ -46,7 +52,43 @@ app.use(
 // --------------------
 // 🔹 Middlewares
 // --------------------
-app.use(express.json());
+app.use(express.json({
+  type: ['application/json', 'application/x-www-form-urlencoded']
+}));
+
+// --------------------
+// 🔹 Static File Serving
+// --------------------
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// --------------------
+// 🔹 File Upload Configuration
+// --------------------
+import multer from "multer";
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, "uploads"));
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
+  },
+});
+
+const upload = multer({ storage });
+
+// Make upload available globally
+app.use((req, res, next) => {
+  req.upload = upload;
+  next();
+});
+
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Serve uploaded files
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // --------------------
 // 🔹 Connect to MongoDB
@@ -69,6 +111,7 @@ app.use("/api/teaching-assignment", teachingAssignmentRoutes);
 app.use("/api/subjects", subjectRoutes);
 app.use("/api/rubric", rubricRoutes);
 app.use("/api/student-subject-marks", studentSubjectMarksRoutes); // Added route for student-subject-marks
+app.use("/api/admin", adminRoutes);
 
 // --------------------
 // 🔹 Start server

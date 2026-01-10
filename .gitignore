@@ -10,6 +10,7 @@ backend/.DS_Store
 backend/npm-debug.log*
 backend/yarn-debug.log*
 backend/yarn-error.log*
+backend/src/uploads/
 
 # ===============================
 # React (Frontend)
@@ -40,12 +41,6 @@ Thumbs.db
 /.pnp
 .pnp.js
 /coverage
-
-
-
-
-
-
 
 
 

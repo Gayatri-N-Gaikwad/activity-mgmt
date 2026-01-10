@@ -161,7 +161,14 @@ function ActivityList() {
             ) : (
               activities.map((act) => (
                 <tr key={act._id}>
-                  <td className="col-name">{act.name}</td>
+                  <td className="col-name">
+                    <Link
+                      to={`/activity/details/${act._id}`}
+                      style={{ color: "#007bff", textDecoration: "none", fontWeight: "bold" }}
+                    >
+                      {act.name}
+                    </Link>
+                  </td>
 
                   <td className="col-desc">
                     {expanded.has(act._id) ? (
@@ -285,18 +292,29 @@ function ActivityList() {
             setModalOpen(false);
             setModalPayload(null);
           }}
-          onConfirm={async (reason) => {
+          onConfirm={async (reason, files) => {
             try {
-              await API.put(`/activities/update/${modalPayload.act._id}`, {
-                status: modalPayload.newStatus,
-                statusChangeReason: reason,
+              const formData = new FormData();
+              formData.append('status', modalPayload.newStatus);
+              if (reason) {
+                formData.append('statusChangeReason', reason);
+              }
+
+              // Add files if provided
+              if (files && files.length > 0) {
+                files.forEach(file => {
+                  formData.append('modelAnswerFiles', file);
+                });
+              }
+
+              await API.put(`/activities/update/${modalPayload.act._id}`, formData, {
+                headers: {
+                  'Content-Type': 'multipart/form-data',
+                },
               });
 
-              setActivities((prev) =>
-                prev.map((a) =>
-                  a._id === modalPayload.act._id ? { ...a, status: modalPayload.newStatus } : a
-                )
-              );
+              // Reload activities to get updated data including modelAnswerFiles
+              await loadActivities(userId);
 
               showToast("success", "Status updated");
             } catch (err) {

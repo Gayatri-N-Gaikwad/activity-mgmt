@@ -144,7 +144,17 @@ export const getAllActivities = async (req, res) => {
 /*---------------- GET ACTIVITY BY ID ----------------*/
 export const getActivityById = async (req, res) => {
   try {
-    const activity = await Activity.findById(req.params.id);
+    const activity = await Activity.findById(req.params.id)
+      .populate('conductedConfirmation.confirmedBy', 'name email')
+      .populate('coordinatorId', 'name email')
+      .populate({
+        path: 'assignmentId',
+        populate: [
+          { path: 'facultyId', select: 'name email' },
+          { path: 'subjectId', select: 'name code' },
+          { path: 'classId', select: 'name' }
+        ]
+      });
     if (!activity) return res.status(404).json({ error: 'Activity not found' });
     const rubric = await RubricCriteria.find({ activityId: req.params.id }).select('name maxMarks');
     res.json({ activity, rubric });
@@ -170,6 +180,7 @@ export const getActivitiesByAssignment = async (req, res) => {
 export const updateActivity = async (req, res) => {
   try {
     const user = req.user;
+    const body = req.body || {};
     const {
       name,
       description,
@@ -178,7 +189,7 @@ export const updateActivity = async (req, res) => {
       statusChangeReason,
       rubric,
       marks
-    } = req.body;
+    } = body;
 
     // fetch existing activity
     const activity = await Activity.findById(req.params.id);
@@ -234,7 +245,24 @@ export const updateActivity = async (req, res) => {
     const updateFields = {};
     if (name !== undefined) updateFields.name = name;
     if (description !== undefined) updateFields.description = description;
-    if (status !== undefined) updateFields.status = status;
+    if (status !== undefined) {
+      updateFields.status = status;
+      
+      // If status is being changed to 'Conducted', also update modelAnswerFiles and conductedConfirmation
+      if (status === 'Conducted') {
+        if (!req.files || req.files.length === 0) {
+          return res.status(400).json({ error: 'At least one model answer file must be uploaded when marking activity as conducted' });
+        }
+        const filePaths = req.files.map(file => `/uploads/${file.filename}`);
+        updateFields.modelAnswerFiles = filePaths;
+        
+        updateFields.conductedConfirmation = {
+          confirmedAt: new Date(),
+          confirmedBy: user._id || user.id,
+          notes: statusChangeReason || ''
+        };
+      }
+    }
     if (scheduleDate !== undefined) updateFields.scheduleDate = scheduleDate;
 
     // ---------------- Rubric update ----------------
