@@ -293,38 +293,32 @@ function ActivityList() {
             setModalPayload(null);
           }}
           onConfirm={async (reason, files) => {
+            if (
+              modalPayload.newStatus === "Conducted" &&
+              (!files || files.length === 0)
+            ) {
+              showToast("error", "Please upload at least one model answer file");
+              return;
+            }
+
             try {
               const formData = new FormData();
-              formData.append('status', modalPayload.newStatus);
-              if (reason) {
-                formData.append('statusChangeReason', reason);
-              }
+              formData.append("status", modalPayload.newStatus);
+              if (reason) formData.append("statusChangeReason", reason);
 
-              // Add files if provided
-              if (files && files.length > 0) {
-                files.forEach(file => {
-                  formData.append('modelAnswerFiles', file);
-                });
-              }
-
-              await API.put(`/activities/update/${modalPayload.act._id}`, formData, {
-                headers: {
-                  'Content-Type': 'multipart/form-data',
-                },
+              files.forEach(file => {
+                formData.append("modelAnswerFiles", file);
               });
 
-              // Reload activities to get updated data including modelAnswerFiles
+              await API.put(`/activities/update/${modalPayload.act._id}`, formData);
               await loadActivities(userId);
-
               showToast("success", "Status updated");
             } catch (err) {
               console.error("Status update error", err);
               showToast("error", err.response?.data?.error || "Error updating status");
-            } finally {
-              setModalOpen(false);
-              setModalPayload(null);
             }
           }}
+
         />
       )}
     </div>

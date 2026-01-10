@@ -42,24 +42,38 @@ function DashboardPage() {
 
           // fetch marks for each subject
           for (const sub of subjectMap[cls._id]) {
-            const resMarks = await API.get(
-              `/marks/class/${cls._id}/subject/${sub._id}`
-            );
+            try {
+              const resMarks = await API.get(
+                `/marks/class/${cls._id}/subject/${sub._id}`
+              );
 
-            const arr = resMarks.data.marks || [];
+              const arr = resMarks.data?.marks || [];
+              
+              if (arr.length === 0) {
+                console.log(`No marks found for class ${cls._id}, subject ${sub._id}`);
+              }
 
-            arr.forEach((m) => {
-              const studentId = m.studentId?._id;
-              if (!studentId) return;
+              arr.forEach((m) => {
+                const studentId = m.studentId?._id;
+                if (!studentId) {
+                  console.warn("Mark entry missing studentId:", m);
+                  return;
+                }
 
-              marksMap[studentId] = {
-                ...marksMap[studentId],
-                [sub._id]: {
-                  activities: m.activities || [],
-                  totalMarks: m.totalMarks || 0,
-                },
-              };
-            });
+                // Convert to string to ensure consistent key matching
+                const studentIdStr = String(studentId);
+                
+                marksMap[studentIdStr] = {
+                  ...marksMap[studentIdStr],
+                  [sub._id]: {
+                    activities: m.activities || [],
+                    totalMarks: m.totalMarks || 0,
+                  },
+                };
+              });
+            } catch (markError) {
+              console.error(`Error fetching marks for class ${cls._id}, subject ${sub._id}:`, markError);
+            }
           }
         }
 
@@ -192,7 +206,8 @@ function DashboardPage() {
           {(subjects[cls._id] || []).length === 0 && <p>No subjects assigned.</p>}
 
           {(subjects[cls._id] || []).map((sub) => {
-            const classStudents = students.filter((s) => s.classId === cls._id);
+            // Convert IDs to strings for consistent comparison
+            const classStudents = students.filter((s) => String(s.classId) === String(cls._id));
             if (!classStudents.length) return null;
 
             return (
@@ -239,8 +254,10 @@ function DashboardPage() {
                   </thead>
                   <tbody>
                     {classStudents.map((stu) => {
+                      // Convert student ID to string for consistent key matching
+                      const studentIdStr = String(stu._id);
                       const data =
-                        marksData[stu._id]?.[sub._id] || {
+                        marksData[studentIdStr]?.[sub._id] || {
                           activities: [],
                           totalMarks: 0,
                         };

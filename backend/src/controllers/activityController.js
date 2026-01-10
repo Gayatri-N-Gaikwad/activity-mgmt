@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Activity from "../models/Activity.js";
 import * as RubricCriteriaMod from "../models/RubricCriteria.js";
 import * as StudentActivityMarksMod from "../models/StudentActivityMarks.js";
@@ -490,15 +491,26 @@ export const getStudentsByClass = async (req, res) => {
   try {
     const { classId } = req.params;
 
-    const students = await Student.find({ classId }).select("name rollNumber classId");
+    console.log("Searching students in classId =", classId, "Type:", typeof classId);
 
-    if (!students || students.length === 0) {
-      return res.status(404).json({ error: "No students found for this class" });
+    // Mongoose automatically handles ObjectId string conversion, but let's be explicit
+    let queryClassId = classId;
+    
+    // Convert to ObjectId if it's a valid ObjectId string
+    if (mongoose.Types.ObjectId.isValid(classId)) {
+      queryClassId = new mongoose.Types.ObjectId(classId);
     }
 
-    res.json({ students });
+    const students = await Student.find({ classId: queryClassId })
+      .select("name rollNumber classId _id")
+      .lean();
+
+    console.log(`Found ${students.length} students for classId ${classId}`);
+
+    // Return empty array instead of error if no students found
+    res.json({ students: students || [] });
   } catch (err) {
     console.error("Error fetching students by class:", err);
-    res.status(500).json({ error: "Server error fetching students" });
+    res.status(500).json({ error: "Server error fetching students", details: err.message });
   }
 };

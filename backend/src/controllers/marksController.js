@@ -108,6 +108,11 @@ export const addMarks = async (req, res) => {
         classId,
         activities: []
       });
+    } else {
+      // Update classId if it's missing or if a new classId is provided
+      if (classId && (!doc.classId || doc.classId.toString() !== classId.toString())) {
+        doc.classId = classId;
+      }
     }
 
     // Check if activity already present
@@ -259,9 +264,43 @@ export const getMarksByClassSubject = async (req, res) => {
   try {
     const { classId, subjectId } = req.params;
 
-    const docs = await StudentSubjectMarks.find({ classId, subjectId })
-      .populate("studentId")
+    // Find marks by subjectId, and then filter by classId if it exists in the document
+    // This handles cases where classId might be null in older records
+    let docs = await StudentSubjectMarks.find({ subjectId })
+      .populate("studentId", "name rollNumber classId")
+      .populate({
+        path: "activities.activityId",
+        select: "name scheduleDate status"
+      })
       .lean();
+
+    // Filter by classId: either the document has the matching classId, or if classId is null/undefined,
+    // check if the student's classId matches (for backward compatibility)
+    docs = docs.filter((doc) => {
+      if (doc.classId) {
+        return doc.classId.toString() === classId;
+      }
+      // If classId is not set in the document, check the student's classId
+      if (doc.studentId && doc.studentId.classId) {
+        return doc.studentId.classId.toString() === classId;
+      }
+      return false;
+    });
+
+    // Sort activities by scheduleDate for each student's marks
+    docs.forEach((doc) => {
+      if (doc.activities && Array.isArray(doc.activities)) {
+        // Filter out activities where activityId is null (deleted activities)
+        doc.activities = doc.activities.filter(a => a.activityId != null);
+        
+        // Sort by scheduleDate
+        doc.activities.sort((a, b) => {
+          const dateA = a.activityId?.scheduleDate ? new Date(a.activityId.scheduleDate) : new Date(0);
+          const dateB = b.activityId?.scheduleDate ? new Date(b.activityId.scheduleDate) : new Date(0);
+          return dateA - dateB;
+        });
+      }
+    });
 
     res.json({ success: true, marks: docs });
 

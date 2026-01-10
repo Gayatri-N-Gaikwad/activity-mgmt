@@ -27,33 +27,69 @@ function AddMarks() {
           return;
         }
 
+        console.log("Activity details:", activityDetails);
+        
+        if (!activityDetails.assignmentId) {
+          console.error("Activity missing assignmentId:", activityDetails);
+          showToast("error", "Activity is missing assignment information");
+          setLoading(false);
+          return;
+        }
+
         setActivity({ ...activityDetails, rubric });
 
         // Fetch assignment to get classId and subjectId
-        const resAssign = await API.get(`/teaching-assignment/${activityDetails.assignmentId}`);
+        const assignmentId =
+          activityDetails.assignmentId?._id || activityDetails.assignmentId;
+
+        const resAssign = await API.get(
+          `/teaching-assignment/${assignmentId}`
+        );
         const assignment = resAssign.data.assignment;
 
+        console.log("Assignment response:", resAssign.data);
+        
         if (!assignment) {
+          console.error("Assignment not found for assignmentId:", activityDetails.assignmentId);
           showToast("error", "Teaching assignment not found");
           setLoading(false);
           return;
         }
 
+        // Extract IDs - handle both populated objects and plain IDs
         const subjId = assignment.subjectId?._id || assignment.subjectId;
         const clsId = assignment.classId?._id || assignment.classId;
 
+        console.log("Assignment data:", assignment);
+        console.log("Extracted classId:", clsId);
+        console.log("Extracted subjectId:", subjId);
+
         if (!subjId || !clsId) {
+          console.error("Missing IDs - Subject:", subjId, "Class:", clsId);
           showToast("error", "Subject ID or Class ID not found");
           setLoading(false);
           return;
         }
 
-        setSubjectId(subjId);
-        setClassId(clsId);
+        // Convert to string to ensure consistent format
+        const subjIdStr = String(subjId);
+        const clsIdStr = String(clsId);
+
+        setSubjectId(subjIdStr);
+        setClassId(clsIdStr);
 
         // Fetch students for this class
-        const resStudents = await API.get(`/students/by-class/${clsId}`);
-        const studentsList = resStudents.data.students || [];
+        console.log("Fetching students for classId:", clsIdStr);
+        const resStudents = await API.get(`/students/by-class/${clsIdStr}`);
+        const studentsList = resStudents.data?.students || [];
+        
+        console.log("Fetched students:", studentsList.length, studentsList);
+        
+        if (studentsList.length === 0) {
+          console.warn("No students found for classId:", clsIdStr);
+          showToast("warning", "No students found for this class");
+        }
+        
         setStudents(studentsList);
 
         // Fetch existing marks
