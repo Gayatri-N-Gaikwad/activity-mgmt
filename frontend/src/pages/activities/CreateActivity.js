@@ -28,7 +28,9 @@ function CreateActivity() {
     if (!facultyId) return;
     (async () => {
       try {
-        const res = await API.get(`/teaching-assignment/byfaculty/${facultyId}`);
+        const res = await API.get(
+          `/teaching-assignment/byfaculty/${facultyId}`
+        );
         setAssignments(res.data);
       } catch (err) {
         showToast("error", "Error fetching teaching assignments");
@@ -44,7 +46,9 @@ function CreateActivity() {
 
     (async () => {
       try {
-        const res = await API.get(`/rubric/used-marks?assignmentId=${assignmentId}`);
+        const res = await API.get(
+          `/rubric/used-marks?assignmentId=${assignmentId}`
+        );
         setActivityCount(res.data.activityCount || 0);
         setUsedMarks(res.data.usedMarks || 0);
       } catch (err) {
@@ -91,13 +95,26 @@ function CreateActivity() {
     try {
       const formattedDate = parseKolkataInputToISOString(scheduleDate);
 
+      const now = new Date();
+      const scheduledTime = new Date(formattedDate);
+
+      if (isNaN(scheduledTime.getTime())) {
+        showToast("error", "Please select a valid schedule date");
+        return;
+      }
+
+      if (scheduledTime <= now) {
+        showToast("error", "Activity must be scheduled in the future");
+        return;
+      }
+
       //  Create activity
       const payload = {
         name,
         description,
         scheduleDate: formattedDate,
         assignmentId,
-        marks: finalMarks // ✅ send marks for first activity
+        marks: finalMarks, // ✅ send marks for first activity
       };
 
       const actRes = await API.post("/activities/create", payload);
@@ -108,9 +125,11 @@ function CreateActivity() {
         throw new Error("Activity creation failed: No _id returned");
       }
 
-      showToast("success", `Activity "${name}" created with ${finalMarks} marks`);
+      showToast(
+        "success",
+        `Activity "${name}" created with ${finalMarks} marks`
+      );
       navigate("/activities");
-
     } catch (err) {
       console.error("Create activity error:", err);
       showToast(
@@ -130,15 +149,22 @@ function CreateActivity() {
       <h2>Create Activity</h2>
 
       <form onSubmit={create} className="create-form">
-
         <div className="form-row">
           <label>Activity Name</label>
-          <input required value={name} onChange={(e) => setName(e.target.value)} />
+          <input
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
         </div>
 
         <div className="form-row">
           <label>Description</label>
-          <textarea required value={description} onChange={(e) => setDescription(e.target.value)} />
+          <textarea
+            required
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
         </div>
 
         <div className="form-row">
@@ -159,7 +185,7 @@ function CreateActivity() {
             onChange={(e) => setAssignmentId(e.target.value)}
           >
             <option value="">-- Select --</option>
-            {assignments.map(a => (
+            {assignments.map((a) => (
               <option key={a._id} value={a._id}>
                 {a.subjectId?.name} — {a.classId?.name}
               </option>
@@ -198,7 +224,6 @@ function CreateActivity() {
             Cancel
           </button>
         </div>
-
       </form>
     </div>
   );

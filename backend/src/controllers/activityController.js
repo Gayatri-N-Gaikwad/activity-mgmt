@@ -9,7 +9,8 @@ import StudentSubjectMarks from "../models/StudentSubjectMarks.js";
 
 // Handle CommonJS exports from model files (they use module.exports)
 const RubricCriteria = RubricCriteriaMod.default || RubricCriteriaMod;
-const StudentActivityMarks = StudentActivityMarksMod.default || StudentActivityMarksMod;
+const StudentActivityMarks =
+  StudentActivityMarksMod.default || StudentActivityMarksMod;
 
 /*---------------- CREATE ACTIVITY ----------------*/
 export const createActivity = async (req, res) => {
@@ -25,8 +26,17 @@ export const createActivity = async (req, res) => {
     }
 
     const parsedDate = new Date(scheduleDate);
+
     if (isNaN(parsedDate.getTime())) {
       return res.status(400).json({ error: "Invalid scheduleDate format" });
+    }
+
+    const now = new Date();
+
+    if (parsedDate <= now) {
+      return res.status(400).json({
+        error: "Activity cannot be scheduled in the past",
+      });
     }
 
     if (!assignmentId) {
@@ -37,7 +47,8 @@ export const createActivity = async (req, res) => {
     const assignment = await TeachingAssignment.findById(assignmentId);
     if (!assignment) {
       return res.status(400).json({
-        error: "Invalid assignmentId. Faculty does not teach this subject in this class."
+        error:
+          "Invalid assignmentId. Faculty does not teach this subject in this class.",
       });
     }
 
@@ -46,7 +57,7 @@ export const createActivity = async (req, res) => {
 
     if (existingActivities.length >= 2) {
       return res.status(400).json({
-        error: "Only two activities allowed per class/subject"
+        error: "Only two activities allowed per class/subject",
       });
     }
 
@@ -57,20 +68,22 @@ export const createActivity = async (req, res) => {
       const m = Number(marks);
       if (isNaN(m) || m <= 0 || m > 15) {
         return res.status(400).json({
-          error: "Marks must be between 1 and 15"
+          error: "Marks must be between 1 and 15",
         });
       }
       rubricCriteria = [{ name: name || "Activity", marks: m }];
-
     } else if (existingActivities.length === 1) {
       // Second activity → auto calculate
-      const prevRubric = await RubricCriteria.findOne({ activityId: existingActivities[0]._id });
+      const prevRubric = await RubricCriteria.findOne({
+        activityId: existingActivities[0]._id,
+      });
       const prevMarks = prevRubric ? Number(prevRubric.maxMarks) : 0;
 
       const m = 15 - prevMarks;
       if (m <= 0) {
         return res.status(400).json({
-          error: "Invalid marks distribution. Previous activity used all 15 marks."
+          error:
+            "Invalid marks distribution. Previous activity used all 15 marks.",
         });
       }
 
@@ -83,14 +96,14 @@ export const createActivity = async (req, res) => {
       description,
       scheduleDate: parsedDate,
       coordinatorId: userId,
-      assignmentId
+      assignmentId,
     });
 
     // Save rubric
     await RubricCriteria.create({
       activityId: activity._id,
       name: rubricCriteria[0].name,
-      maxMarks: rubricCriteria[0].marks
+      maxMarks: rubricCriteria[0].marks,
     });
 
     // Reminder scheduling
@@ -103,7 +116,7 @@ export const createActivity = async (req, res) => {
         assignedToEmail: userEmail,
         title: name,
         deadline: d3,
-        _id: activity._id
+        _id: activity._id,
       });
     }
     if (d1 > Date.now()) {
@@ -111,15 +124,14 @@ export const createActivity = async (req, res) => {
         assignedToEmail: userEmail,
         title: name,
         deadline: d1,
-        _id: activity._id
+        _id: activity._id,
       });
     }
 
     res.json({
       message: "Activity created successfully",
-      activity
+      activity,
     });
-
   } catch (error) {
     console.error("🔥 createActivity ERROR:", error);
     res.status(500).json({ error: "Server error" });
@@ -131,10 +143,14 @@ export const getAllActivities = async (req, res) => {
   try {
     const activities = await Activity.find();
     // attach rubric criteria for each activity
-    const activitiesWithRubric = await Promise.all(activities.map(async (act) => {
-      const rubric = await RubricCriteria.find({ activityId: act._id }).select('name maxMarks');
-      return { ...act.toObject(), rubric };
-    }));
+    const activitiesWithRubric = await Promise.all(
+      activities.map(async (act) => {
+        const rubric = await RubricCriteria.find({
+          activityId: act._id,
+        }).select("name maxMarks");
+        return { ...act.toObject(), rubric };
+      })
+    );
     res.json({ activities: activitiesWithRubric });
   } catch (error) {
     console.error("🔥 getAllActivities ERROR:", error);
@@ -146,18 +162,20 @@ export const getAllActivities = async (req, res) => {
 export const getActivityById = async (req, res) => {
   try {
     const activity = await Activity.findById(req.params.id)
-      .populate('conductedConfirmation.confirmedBy', 'name email')
-      .populate('coordinatorId', 'name email')
+      .populate("conductedConfirmation.confirmedBy", "name email")
+      .populate("coordinatorId", "name email")
       .populate({
-        path: 'assignmentId',
+        path: "assignmentId",
         populate: [
-          { path: 'facultyId', select: 'name email' },
-          { path: 'subjectId', select: 'name code' },
-          { path: 'classId', select: 'name' }
-        ]
+          { path: "facultyId", select: "name email" },
+          { path: "subjectId", select: "name code" },
+          { path: "classId", select: "name" },
+        ],
       });
-    if (!activity) return res.status(404).json({ error: 'Activity not found' });
-    const rubric = await RubricCriteria.find({ activityId: req.params.id }).select('name maxMarks');
+    if (!activity) return res.status(404).json({ error: "Activity not found" });
+    const rubric = await RubricCriteria.find({
+      activityId: req.params.id,
+    }).select("name maxMarks");
     res.json({ activity, rubric });
   } catch (error) {
     console.error("🔥 getActivityById ERROR:", error);
@@ -189,56 +207,72 @@ export const updateActivity = async (req, res) => {
       scheduleDate,
       statusChangeReason,
       rubric,
-      marks
+      marks,
     } = body;
 
     // fetch existing activity
     const activity = await Activity.findById(req.params.id);
-    if (!activity) return res.status(404).json({ error: 'Activity not found' });
+    if (!activity) return res.status(404).json({ error: "Activity not found" });
 
     // ---------------- Status validation ----------------
     if (status !== undefined && status !== activity.status) {
       const statusFlow = {
-        Scheduled: ['Conducted'],
-        Conducted: ['Marks_Updated'],
-        Marks_Updated: []
+        Scheduled: ["Conducted"],
+        Conducted: ["Marks_Updated"],
+        Marks_Updated: [],
       };
       const allowedTargets = statusFlow[activity.status] || [];
       if (!allowedTargets.includes(status)) {
         return res.status(400).json({
-          error: `Cannot change status from ${activity.status} to ${status}`
+          error: `Cannot change status from ${activity.status} to ${status}`,
         });
       }
 
-      if (status === 'Conducted') {
+      if (status === "Conducted") {
         if (!activity.scheduleDate) {
-          return res.status(400).json({ error: 'Cannot mark as Conducted: activity has no scheduled date' });
+          return res
+            .status(400)
+            .json({
+              error: "Cannot mark as Conducted: activity has no scheduled date",
+            });
         }
         const sched = new Date(activity.scheduleDate).getTime();
         if (isNaN(sched) || sched > Date.now()) {
-          return res.status(400).json({ error: 'Cannot mark as Conducted before scheduled date/time' });
+          return res
+            .status(400)
+            .json({
+              error: "Cannot mark as Conducted before scheduled date/time",
+            });
         }
       }
 
-      if (status === 'Marks_Updated') {
+      if (status === "Marks_Updated") {
         const marksExist = await StudentSubjectMarks.exists({
-          "activities.activityId": activity._id
+          "activities.activityId": activity._id,
         });
         if (!marksExist) {
           return res.status(400).json({
-            error: 'Add marks for at least one student before marking as Marks Updated'
+            error:
+              "Add marks for at least one student before marking as Marks Updated",
           });
         }
       }
       if (statusChangeReason) {
-        console.info(`Status change reason for activity ${activity._id}:`, statusChangeReason);
+        console.info(
+          `Status change reason for activity ${activity._id}:`,
+          statusChangeReason
+        );
       }
     }
 
     // ---------------- Schedule validation ----------------
     if (scheduleDate !== undefined) {
-      if (activity.status === 'Conducted') {
-        return res.status(400).json({ error: 'Cannot change schedule: activity already Conducted' });
+      if (activity.status === "Conducted") {
+        return res
+          .status(400)
+          .json({
+            error: "Cannot change schedule: activity already Conducted",
+          });
       }
     }
 
@@ -248,19 +282,24 @@ export const updateActivity = async (req, res) => {
     if (description !== undefined) updateFields.description = description;
     if (status !== undefined) {
       updateFields.status = status;
-      
+
       // If status is being changed to 'Conducted', also update modelAnswerFiles and conductedConfirmation
-      if (status === 'Conducted') {
+      if (status === "Conducted") {
         if (!req.files || req.files.length === 0) {
-          return res.status(400).json({ error: 'At least one model answer file must be uploaded when marking activity as conducted' });
+          return res
+            .status(400)
+            .json({
+              error:
+                "At least one model answer file must be uploaded when marking activity as conducted",
+            });
         }
-        const filePaths = req.files.map(file => `/uploads/${file.filename}`);
+        const filePaths = req.files.map((file) => `/uploads/${file.filename}`);
         updateFields.modelAnswerFiles = filePaths;
-        
+
         updateFields.conductedConfirmation = {
           confirmedAt: new Date(),
           confirmedBy: user._id || user.id,
-          notes: statusChangeReason || ''
+          notes: statusChangeReason || "",
         };
       }
     }
@@ -269,19 +308,24 @@ export const updateActivity = async (req, res) => {
     // ---------------- Rubric update ----------------
     if (rubric !== undefined) {
       // check if marks exist for this activity
-      const marksExist = await StudentActivityMarks.exists({ activityId: activity._id });
+      const marksExist = await StudentActivityMarks.exists({
+        activityId: activity._id,
+      });
 
       if (marksExist) {
-        console.info(`Activity ${activity._id} has existing marks; skipping rubric update`);
+        console.info(
+          `Activity ${activity._id} has existing marks; skipping rubric update`
+        );
       } else if (Array.isArray(rubric) && rubric.length > 0) {
         const total = rubric.reduce((s, r) => s + Number(r.marks || 0), 0);
-        if (total !== 15) return res.status(400).json({ error: 'Rubric marks must sum to 15' });
+        if (total !== 15)
+          return res.status(400).json({ error: "Rubric marks must sum to 15" });
 
         await RubricCriteria.deleteMany({ activityId: activity._id });
-        const criteriaDocs = rubric.map(r => ({
+        const criteriaDocs = rubric.map((r) => ({
           activityId: activity._id,
-          name: r.name || 'Criteria',
-          maxMarks: Number(r.marks)
+          name: r.name || "Criteria",
+          maxMarks: Number(r.marks),
         }));
         await RubricCriteria.insertMany(criteriaDocs);
       } else if (Array.isArray(rubric) && rubric.length === 0) {
@@ -297,35 +341,63 @@ export const updateActivity = async (req, res) => {
       }
 
       if (numericMarks <= 0) {
-        return res.status(400).json({ error: "Marks must be greater than zero" });
+        return res
+          .status(400)
+          .json({ error: "Marks must be greater than zero" });
       }
 
       if (numericMarks >= 15) {
-        return res.status(400).json({ error: "Keep at least 1 mark reserved for the second activity (max 14)" });
+        return res
+          .status(400)
+          .json({
+            error:
+              "Keep at least 1 mark reserved for the second activity (max 14)",
+          });
       }
 
-      const marksExist = await StudentActivityMarks.exists({ activityId: activity._id });
+      const marksExist = await StudentActivityMarks.exists({
+        activityId: activity._id,
+      });
       if (marksExist) {
-        return res.status(400).json({ error: "Cannot change marks after students have been graded" });
+        return res
+          .status(400)
+          .json({
+            error: "Cannot change marks after students have been graded",
+          });
       }
 
       const assignmentId = activity.assignmentId;
       if (!assignmentId) {
-        return res.status(400).json({ error: "Activity is missing assignment linkage" });
+        return res
+          .status(400)
+          .json({ error: "Activity is missing assignment linkage" });
       }
 
       const siblings = await Activity.find({ assignmentId });
-      const other = siblings.find(a => a._id.toString() !== activity._id.toString());
+      const other = siblings.find(
+        (a) => a._id.toString() !== activity._id.toString()
+      );
 
       if (other) {
-        const otherMarksExist = await StudentActivityMarks.exists({ activityId: other._id });
+        const otherMarksExist = await StudentActivityMarks.exists({
+          activityId: other._id,
+        });
         if (otherMarksExist) {
-          return res.status(400).json({ error: "Cannot rebalance marks: sibling activity already has student marks" });
+          return res
+            .status(400)
+            .json({
+              error:
+                "Cannot rebalance marks: sibling activity already has student marks",
+            });
         }
 
         const siblingMarks = 15 - numericMarks;
         if (siblingMarks <= 0) {
-          return res.status(400).json({ error: "At least 1 mark must remain for the sibling activity" });
+          return res
+            .status(400)
+            .json({
+              error: "At least 1 mark must remain for the sibling activity",
+            });
         }
 
         await RubricCriteria.findOneAndUpdate(
@@ -343,7 +415,11 @@ export const updateActivity = async (req, res) => {
     }
 
     // ---------------- Update activity ----------------
-    const updatedActivity = await Activity.findByIdAndUpdate(req.params.id, updateFields, { new: true });
+    const updatedActivity = await Activity.findByIdAndUpdate(
+      req.params.id,
+      updateFields,
+      { new: true }
+    );
 
     // ---------------- Reschedule reminders ----------------
     if (scheduleDate) {
@@ -353,8 +429,20 @@ export const updateActivity = async (req, res) => {
         const MS_DAY = 24 * 60 * 60 * 1000;
         const d3 = new Date(parsed.getTime() - 3 * MS_DAY);
         const d1 = new Date(parsed.getTime() - 1 * MS_DAY);
-        if (d3.getTime() > Date.now()) scheduleActivityReminder({ assignedToEmail: userEmail, title: updatedActivity.name, deadline: d3, _id: updatedActivity._id });
-        if (d1.getTime() > Date.now()) scheduleActivityReminder({ assignedToEmail: userEmail, title: updatedActivity.name, deadline: d1, _id: updatedActivity._id });
+        if (d3.getTime() > Date.now())
+          scheduleActivityReminder({
+            assignedToEmail: userEmail,
+            title: updatedActivity.name,
+            deadline: d3,
+            _id: updatedActivity._id,
+          });
+        if (d1.getTime() > Date.now())
+          scheduleActivityReminder({
+            assignedToEmail: userEmail,
+            title: updatedActivity.name,
+            deadline: d1,
+            _id: updatedActivity._id,
+          });
       }
     }
 
@@ -362,7 +450,6 @@ export const updateActivity = async (req, res) => {
       message: "Activity updated successfully",
       activity: updatedActivity,
     });
-
   } catch (error) {
     console.error("🔥 updateActivity ERROR:", error);
     res.status(500).json({ error: "Server error" });
@@ -377,11 +464,18 @@ export const scheduleActivity = async (req, res) => {
     const { scheduledDate } = req.body;
 
     const activity = await Activity.findById(req.params.id);
-    if (!activity) return res.status(404).json({ error: 'Activity not found' });
+    if (!activity) return res.status(404).json({ error: "Activity not found" });
 
     // Do not allow scheduling if activity already conducted or marks updated
-    if (activity.status === 'Conducted' || activity.status === 'Marks_Updated') {
-      return res.status(400).json({ error: 'Cannot schedule: activity already conducted or marks updated' });
+    if (
+      activity.status === "Conducted" ||
+      activity.status === "Marks_Updated"
+    ) {
+      return res
+        .status(400)
+        .json({
+          error: "Cannot schedule: activity already conducted or marks updated",
+        });
     }
 
     const updated = await Activity.findByIdAndUpdate(
@@ -391,7 +485,7 @@ export const scheduleActivity = async (req, res) => {
     );
 
     if (!updated) {
-      return res.status(404).json({ error: 'Activity not found' });
+      return res.status(404).json({ error: "Activity not found" });
     }
 
     // schedule reminders at fixed offsets (3 days and 1 day before)
@@ -400,8 +494,20 @@ export const scheduleActivity = async (req, res) => {
       const MS_DAY = 24 * 60 * 60 * 1000;
       const d3 = new Date(parsed.getTime() - 3 * MS_DAY);
       const d1 = new Date(parsed.getTime() - 1 * MS_DAY);
-      if (d3.getTime() > Date.now()) scheduleActivityReminder({ assignedToEmail: userEmail, title: updated.name, deadline: d3, _id: updated._id });
-      if (d1.getTime() > Date.now()) scheduleActivityReminder({ assignedToEmail: userEmail, title: updated.name, deadline: d1, _id: updated._id });
+      if (d3.getTime() > Date.now())
+        scheduleActivityReminder({
+          assignedToEmail: userEmail,
+          title: updated.name,
+          deadline: d3,
+          _id: updated._id,
+        });
+      if (d1.getTime() > Date.now())
+        scheduleActivityReminder({
+          assignedToEmail: userEmail,
+          title: updated.name,
+          deadline: d1,
+          _id: updated._id,
+        });
     }
 
     res.json({ message: "Activity scheduled", activity: updated });
@@ -432,13 +538,11 @@ export const deleteActivity = async (req, res) => {
     );
 
     res.json({ message: "Activity deleted successfully" });
-
   } catch (error) {
     console.error("🔥 deleteActivity ERROR:", error);
     res.status(500).json({ error: "Server error" });
   }
 };
-
 
 /* ----------------- GET TOTAL MARKS FOR AN ACTIVITY ----------------- */
 export const getTotalMarksForActivity = async (req, res) => {
@@ -448,18 +552,24 @@ export const getTotalMarksForActivity = async (req, res) => {
     // fetch all activities for this assignment
     const activities = await StudentActivityMarks.find({
       studentId,
-      assignmentId
+      assignmentId,
     });
 
-    const totalRubric = activities.reduce((sum, a) => sum + (a.TotalRubricMarks || 0), 0);
-    const totalAttendance = activities.reduce((sum, a) => sum + (a.AttendanceMarks || 0), 0);
+    const totalRubric = activities.reduce(
+      (sum, a) => sum + (a.TotalRubricMarks || 0),
+      0
+    );
+    const totalAttendance = activities.reduce(
+      (sum, a) => sum + (a.AttendanceMarks || 0),
+      0
+    );
 
     const total = totalRubric + totalAttendance; // out of 20
 
     res.json({
       totalRubric,
       totalAttendance,
-      total
+      total,
     });
   } catch (err) {
     console.error(err);
@@ -474,7 +584,8 @@ export const getActivitiesByClassSubject = async (req, res) => {
 
     // Find the assignment for this class and subject
     const assignment = await TeachingAssignment.findOne({ classId, subjectId });
-    if (!assignment) return res.status(404).json({ error: "Assignment not found" });
+    if (!assignment)
+      return res.status(404).json({ error: "Assignment not found" });
 
     // Fetch all activities under this assignment
     const activities = await Activity.find({ assignmentId: assignment._id });
@@ -491,11 +602,16 @@ export const getStudentsByClass = async (req, res) => {
   try {
     const { classId } = req.params;
 
-    console.log("Searching students in classId =", classId, "Type:", typeof classId);
+    console.log(
+      "Searching students in classId =",
+      classId,
+      "Type:",
+      typeof classId
+    );
 
     // Mongoose automatically handles ObjectId string conversion, but let's be explicit
     let queryClassId = classId;
-    
+
     // Convert to ObjectId if it's a valid ObjectId string
     if (mongoose.Types.ObjectId.isValid(classId)) {
       queryClassId = new mongoose.Types.ObjectId(classId);
@@ -511,6 +627,8 @@ export const getStudentsByClass = async (req, res) => {
     res.json({ students: students || [] });
   } catch (err) {
     console.error("Error fetching students by class:", err);
-    res.status(500).json({ error: "Server error fetching students", details: err.message });
+    res
+      .status(500)
+      .json({ error: "Server error fetching students", details: err.message });
   }
 };
