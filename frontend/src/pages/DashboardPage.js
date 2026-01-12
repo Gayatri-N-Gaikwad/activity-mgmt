@@ -113,65 +113,89 @@ function DashboardPage() {
     }
   }, [user?.id, refreshKey]);
 
-  const downloadSubjectReport = async (classId, subjectId, subjectName, className) => {
-    try {
-      setDownloading(true);
-      
-      // Get activity IDs from marksData for this subject
-      const activityIdsSet = new Set();
-      
-      Object.values(marksData).forEach(studentMarks => {
-        if (studentMarks[subjectId]?.activities) {
-          studentMarks[subjectId].activities.forEach(activity => {
-            if (activity.activityId) {
-              activityIdsSet.add(activity.activityId);
-            }
-          });
-        }
+const downloadSubjectReport = async (classId, subjectId, subjectName, className) => {
+  try {
+    setDownloading(true);
+
+    /* ----------------- COLLECT ACTIVITY IDS SAFELY ----------------- */
+    const activityIdsSet = new Set();
+
+    Object.values(marksData).forEach(studentMarks => {
+      const subjectMarks = studentMarks?.[subjectId];
+      if (!subjectMarks?.activities) return;
+
+      subjectMarks.activities.forEach(activity => {
+        if (!activity?.activityId) return;
+
+        // Normalize activityId (handles ObjectId / populated object / string)
+        const activityId =
+          typeof activity.activityId === "object"
+            ? activity.activityId._id || activity.activityId
+            : activity.activityId;
+
+        activityIdsSet.add(String(activityId));
       });
+    });
 
-      if (activityIdsSet.size === 0) {
-        showToast('error', 'No marks available for this subject');
-        return;
-      }
-
-      // Verify that activities have "Marks_Updated" status
-      const resActivities = await API.get("/activities/all");
-      const allActivities = resActivities.data.activities || [];
-      
-      const validActivityIds = Array.from(activityIdsSet).filter(actId => {
-        const activity = allActivities.find(a => String(a._id) === String(actId));
-        return activity && activity.status === "Marks_Updated";
-      });
-
-      if (validActivityIds.length === 0) {
-        showToast('error', 'No activities with updated marks for this subject');
-        return;
-      }
-
-      const response = await API.post("/marks/download-combined", {
-        activityIds: validActivityIds
-      }, {
-        responseType: 'blob'
-      });
-
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `${className}_${subjectName}_Report_${new Date().toLocaleDateString()}.xlsx`);
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      showToast('success', `Report for ${subjectName} downloaded successfully`);
-    } catch (err) {
-      console.error('Download error:', err);
-      showToast('error', 'Error downloading report');
-    } finally {
-      setDownloading(false);
+    if (activityIdsSet.size === 0) {
+      showToast("error", "No marks available for this subject");
+      return;
     }
-  };
+
+    /* ----------------- FETCH ACTIVITIES ----------------- */
+    const resActivities = await API.get("/activities/all");
+    const allActivities = (resActivities.data.activities || []).map(a => ({
+      ...a,
+      _id: String(a._id),
+      status: a.status?.trim()
+    }));
+
+    /* ----------------- FILTER VALID ACTIVITIES ----------------- */
+    const validActivityIds = [];
+
+    activityIdsSet.forEach(actId => {
+      const activity = allActivities.find(a => a._id === actId);
+
+      if (!activity) {
+        console.warn("Activity not found in /activities/all:", actId);
+        return;
+      }
+
+      if (activity.status === "Marks_Updated") {
+        validActivityIds.push(actId);
+      }
+    });
+
+    if (validActivityIds.length === 0) {
+      showToast("error", "No activities with updated marks for this subject");
+      return;
+    }
+
+    /* ----------------- DOWNLOAD REPORT ----------------- */
+    const response = await API.post(
+      "/marks/download-combined",
+      { activityIds: validActivityIds },
+      { responseType: "blob" }
+    );
+
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${className}_${subjectName}_Report_${new Date().toLocaleDateString()}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+
+    showToast("success", `Report for ${subjectName} downloaded successfully`);
+  } catch (err) {
+    console.error("Download error:", err);
+    showToast("error", "Error downloading report");
+  } finally {
+    setDownloading(false);
+  }
+};
+
 
   // Removed attendance handling functions
 
