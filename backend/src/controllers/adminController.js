@@ -117,7 +117,6 @@ export const createSubject = async (req, res) => {
 };
 
 
-
 // Assign subject and class to a faculty
 export const assignSubjectAndClassToFaculty = async (req, res) => {
   try {
@@ -260,5 +259,37 @@ export const uploadStudentsFromExcel = async (req, res) => {
 
     console.error("Student upload error:", err);
     return res.status(500).json({ error: err.message });
+  }
+};
+
+
+// controllers/adminController.js
+export const getAllClasses = async (req, res) => {
+  try {
+    const classes = await Class.find().select("_id name");
+    res.json({ success: true, data: classes });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Failed to fetch classes" });
+  }
+};
+
+
+export const getAllSubjects = async (req, res) => {
+  try {
+    const subjects = await Subject.find().select("_id name code");
+    res.json({ success: true, data: subjects });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Failed to fetch subjects" });
+  }
+};
+
+
+export const getAllFaculties = async (req, res) => {
+  try {
+    const faculties = await User.find({ role: "Faculty" })
+      .select("_id name email");
+    res.json({ success: true, data: faculties });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Failed to fetch faculties" });
   }
 };

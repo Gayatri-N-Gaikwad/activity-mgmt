@@ -39,3 +39,21 @@ export const uploadStudentsExcel = (formData) => {
     }
   });
 };
+
+// 1️⃣ Get all classes
+export const getAllClasses = async () => {
+  const res = await API.get("/admin/classes");
+  return res.data.data;
+};
+
+// 2️⃣ Get all subjects
+export const getAllSubjects = async () => {
+  const res = await API.get("/admin/subjects");
+  return res.data.data;
+};
+
+// 3️⃣ Get all faculties
+export const getAllFaculties = async () => {
+  const res = await API.get("/admin/faculties");
+  return res.data.data;
+};

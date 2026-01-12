@@ -5,10 +5,13 @@ import {
   addClass,
   addSubject,
   assignFaculty,
+    getAllClasses,
+  getAllSubjects,
+  getAllFaculties,
+  uploadStudentsExcel
 } from "../services/teachingAssignmentApi";
 import showToast from "../utils/toast";
 
-import { uploadStudentsExcel } from "../services/teachingAssignmentApi";
 
 function AdminDashboard() {
   const navigate = useNavigate();
@@ -27,6 +30,10 @@ function AdminDashboard() {
   const [studentFile, setStudentFile] = useState(null);
   const [studentClassId, setStudentClassId] = useState("");
 
+  const [classes, setClasses] = useState([]);
+  const [subjects, setSubjects] = useState([]);
+  const [faculties, setFaculties] = useState([]);
+
   // Check if user is admin
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
@@ -44,6 +51,29 @@ function AdminDashboard() {
         .catch(() => showToast("error", "Failed to load teaching assignments"));
     }
   }, [activeTab]);
+
+  /* =======================
+     FETCH DROPDOWN DATA
+  ======================= */
+  useEffect(() => {
+    if (activeTab === "assign" || activeTab === "uploadStudents") {
+      // Fetch classes, subjects, faculties for dropdowns
+      getAllClasses()
+        .then(setClasses)
+        .catch(() => showToast("error", "Failed to load classes"));
+
+      if (activeTab === "assign") {
+        getAllSubjects()
+          .then(setSubjects)
+          .catch(() => showToast("error", "Failed to load subjects"));
+        getAllFaculties()
+          .then(setFaculties)
+          .catch(() => showToast("error", "Failed to load faculties"));
+      }
+    }
+  }, [activeTab]);
+
+  // Handlers
 
   // Add Class
   const handleAddClass = async () => {
@@ -132,7 +162,7 @@ function AdminDashboard() {
         </button>{" "}
         <button onClick={() => setActiveTab("addClass")}>Add Class</button>{" "}
         <button onClick={() => setActiveTab("addSubject")}>Add Subject</button>{" "}
-        <button onClick={() => setActiveTab("assign")}>Assign Faculty</button>
+        <button onClick={() => setActiveTab("assign")}>Assign Faculty</button> {" "}
         <button onClick={() => setActiveTab("uploadStudents")}>
           Upload Students
         </button>
@@ -203,40 +233,61 @@ function AdminDashboard() {
         </>
       )}
 
+      {/* =======================
+         ASSIGN FACULTY (DROPDOWNS)
+      ======================= */}
       {activeTab === "assign" && (
         <>
           <h2>Assign Subject & Class to Faculty</h2>
 
-          <input
-            type="text"
-            placeholder="Faculty ID"
+          <select
             value={assignData.facultyId}
             onChange={(e) =>
               setAssignData({ ...assignData, facultyId: e.target.value })
             }
-          />
+          >
+            <option value="">Select Faculty</option>
+            {faculties.map((f) => (
+              <option key={f._id} value={f._id}>
+                {f.name} ({f.email})
+              </option>
+            ))}
+          </select>
+
           <br />
           <br />
 
-          <input
-            type="text"
-            placeholder="Subject ID"
+          <select
             value={assignData.subjectId}
             onChange={(e) =>
               setAssignData({ ...assignData, subjectId: e.target.value })
             }
-          />
+          >
+            <option value="">Select Subject</option>
+            {subjects.map((s) => (
+              <option key={s._id} value={s._id}>
+                {s.name} ({s.code})
+              </option>
+            ))}
+          </select>
+
           <br />
           <br />
 
-          <input
-            type="text"
-            placeholder="Class ID"
+          <select
             value={assignData.classId}
             onChange={(e) =>
               setAssignData({ ...assignData, classId: e.target.value })
             }
-          />
+          >
+            <option value="">Select Class</option>
+            {classes.map((c) => (
+              <option key={c._id} value={c._id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+
           <br />
           <br />
 
@@ -244,26 +295,23 @@ function AdminDashboard() {
         </>
       )}
 
+
+      {/* =======================
+         UPLOAD STUDENTS (CLASS DROPDOWN)
+      ======================= */}
       {activeTab === "uploadStudents" && (
         <>
           <h2>Upload Students (Excel)</h2>
 
-          <input
-            type="text"
-            placeholder="Class ID"
-            value={studentClassId}
-            onChange={(e) => setStudentClassId(e.target.value)}
-          />
-          <br />
-          <br />
+          <select value={studentClassId} onChange={(e) => setStudentClassId(e.target.value)}>
+            <option value="">Select Class</option>
+            {classes.map((c) => (<option key={c._id} value={c._id}>{c.name}</option>))}
+          </select>
 
-          <input
-            type="file"
-            accept=".xlsx"
-            onChange={(e) => setStudentFile(e.target.files[0])}
-          />
-          <br />
-          <br />
+          <br /><br />
+
+          <input type="file" accept=".xlsx, .xls" onChange={(e) => setStudentFile(e.target.files[0])} />
+          <br /><br />
 
           <button onClick={handleStudentUpload}>Upload Students</button>
 
@@ -272,7 +320,6 @@ function AdminDashboard() {
           </p>
         </>
       )}
-      
     </div>
   );
 }

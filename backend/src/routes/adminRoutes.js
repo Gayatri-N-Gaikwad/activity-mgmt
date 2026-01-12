@@ -5,7 +5,10 @@ import {
   createClass,
   createSubject,
   assignSubjectAndClassToFaculty,
-  uploadStudentsFromExcel
+  uploadStudentsFromExcel,
+  getAllClasses,
+  getAllSubjects,
+  getAllFaculties
 } from "../controllers/adminController.js";
 import { isAdmin } from "../middlewares/isAdmin.js";
 
@@ -51,6 +54,11 @@ router.post(
   upload.single("file"),
   uploadStudentsFromExcel
 );
+
+router.get("/classes", getAllClasses);
+router.get("/subjects", getAllSubjects);
+router.get("/faculties",  getAllFaculties);
+
 
 export default router;
 
