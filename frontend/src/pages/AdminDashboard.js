@@ -8,6 +8,8 @@ import {
 } from "../services/teachingAssignmentApi";
 import showToast from "../utils/toast";
 
+import { uploadStudentsExcel } from "../services/teachingAssignmentApi";
+
 function AdminDashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("assignments");
@@ -21,6 +23,9 @@ function AdminDashboard() {
     subjectId: "",
     classId: "",
   });
+
+  const [studentFile, setStudentFile] = useState(null);
+  const [studentClassId, setStudentClassId] = useState("");
 
   // Check if user is admin
   useEffect(() => {
@@ -36,9 +41,7 @@ function AdminDashboard() {
     if (activeTab === "assignments") {
       getAllTeachingAssignments()
         .then(setAssignments)
-        .catch(() =>
-          showToast("error", "Failed to load teaching assignments")
-        );
+        .catch(() => showToast("error", "Failed to load teaching assignments"));
     }
   }, [activeTab]);
 
@@ -97,6 +100,27 @@ function AdminDashboard() {
     }
   };
 
+  // Add student data
+  const handleStudentUpload = async () => {
+    if (!studentFile || !studentClassId) {
+      showToast("error", "Please select class and Excel file");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", studentFile);
+    formData.append("classId", studentClassId);
+
+    try {
+      await uploadStudentsExcel(formData);
+      showToast("success", "Students uploaded successfully");
+      setStudentFile(null);
+      setStudentClassId("");
+    } catch (err) {
+      showToast("error", "Failed to upload students");
+    }
+  };
+
   return (
     <div style={{ padding: "20px" }}>
       <h1>Admin Dashboard</h1>
@@ -109,6 +133,9 @@ function AdminDashboard() {
         <button onClick={() => setActiveTab("addClass")}>Add Class</button>{" "}
         <button onClick={() => setActiveTab("addSubject")}>Add Subject</button>{" "}
         <button onClick={() => setActiveTab("assign")}>Assign Faculty</button>
+        <button onClick={() => setActiveTab("uploadStudents")}>
+          Upload Students
+        </button>
       </div>
 
       <hr />
@@ -160,9 +187,7 @@ function AdminDashboard() {
             type="text"
             placeholder="Subject Name"
             value={subject.name}
-            onChange={(e) =>
-              setSubject({ ...subject, name: e.target.value })
-            }
+            onChange={(e) => setSubject({ ...subject, name: e.target.value })}
           />
           <br />
           <br />
@@ -170,9 +195,7 @@ function AdminDashboard() {
             type="text"
             placeholder="Subject Code"
             value={subject.code}
-            onChange={(e) =>
-              setSubject({ ...subject, code: e.target.value })
-            }
+            onChange={(e) => setSubject({ ...subject, code: e.target.value })}
           />
           <br />
           <br />
@@ -220,6 +243,36 @@ function AdminDashboard() {
           <button onClick={handleAssign}>Assign</button>
         </>
       )}
+
+      {activeTab === "uploadStudents" && (
+        <>
+          <h2>Upload Students (Excel)</h2>
+
+          <input
+            type="text"
+            placeholder="Class ID"
+            value={studentClassId}
+            onChange={(e) => setStudentClassId(e.target.value)}
+          />
+          <br />
+          <br />
+
+          <input
+            type="file"
+            accept=".xlsx"
+            onChange={(e) => setStudentFile(e.target.files[0])}
+          />
+          <br />
+          <br />
+
+          <button onClick={handleStudentUpload}>Upload Students</button>
+
+          <p style={{ marginTop: "10px", fontSize: "14px" }}>
+            Excel format: <b>rollNumber | name</b>
+          </p>
+        </>
+      )}
+      
     </div>
   );
 }

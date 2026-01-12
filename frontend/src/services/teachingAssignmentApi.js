@@ -30,3 +30,12 @@ export const assignFaculty = async ({ facultyId, subjectId, classId }) => {
   });
   return res.data;
 };
+
+// Upload student data in Excel format
+export const uploadStudentsExcel = (formData) => {
+  return API.post("/admin/students/upload", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data"
+    }
+  });
+};

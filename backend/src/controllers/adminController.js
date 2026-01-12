@@ -11,6 +11,8 @@ import Subject from "../models/Subject.js";
 import User from "../models/User.js";
 
 
+import XLSX from "xlsx";
+
 
 // Controller to get all teaching assignments
 export const getAllTeachingAssignments = async (req, res) => {
@@ -195,5 +197,68 @@ export const assignSubjectAndClassToFaculty = async (req, res) => {
       success: false,
       message: "Server error. Unable to assign subject and class.",
     });
+  }
+};
+
+
+
+/* ---------------- UPLOAD STUDENTS FROM EXCEL ---------------- */
+export const uploadStudentsFromExcel = async (req, res) => {
+  try {
+    const { classId } = req.body;
+
+    if (!classId) {
+      return res.status(400).json({ error: "classId is required" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: "Excel file is required" });
+    }
+
+    /* ---------- Read Excel ---------- */
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+
+    const rows = XLSX.utils.sheet_to_json(sheet);
+
+    if (!rows.length) {
+      return res.status(400).json({ error: "Excel file is empty" });
+    }
+
+    /* ---------- Expected Excel Columns ---------- */
+    // rollNumber | name
+    const students = rows.map((row, index) => {
+      if (!row.rollNumber || !row.name) {
+        throw new Error(`Missing data at row ${index + 2}`);
+      }
+
+      return {
+        rollNumber: String(row.rollNumber).trim(),
+        name: String(row.name).trim(),
+        classId
+      };
+    });
+
+    /* ---------- Insert Students (ignore duplicates) ---------- */
+    const result = await Student.insertMany(students, {
+      ordered: false // allows skipping duplicates
+    });
+
+    return res.status(201).json({
+      message: "Students uploaded successfully",
+      insertedCount: result.length
+    });
+
+  } catch (err) {
+    // Duplicate key errors are expected (unique index)
+    if (err.code === 11000) {
+      return res.status(207).json({
+        message: "Upload completed with some duplicate records skipped"
+      });
+    }
+
+    console.error("Student upload error:", err);
+    return res.status(500).json({ error: err.message });
   }
 };
