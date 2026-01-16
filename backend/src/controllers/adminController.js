@@ -3,13 +3,10 @@ import Activity from "../models/Activity.js";
 import Student from "../models/Student.js";
 import RubricCriteria from "../models/RubricCriteria.js";
 import StudentActivityMarks from "../models/StudentActivityMarks.js";
-
 import Class from "../models/Class.js";
-
 import Subject from "../models/Subject.js";
-
 import User from "../models/User.js";
-
+import AcademicYear from "../models/AcademicYear.js";
 
 import XLSX from "xlsx";
 
@@ -122,7 +119,7 @@ export const assignSubjectAndClassToFaculty = async (req, res) => {
   try {
     const { facultyId, subjectId, classId } = req.body;
 
-    // 1. Validate input
+    // 1. Validate input 
     if (!facultyId || !subjectId || !classId) {
       return res.status(400).json({
         success: false,
@@ -130,7 +127,18 @@ export const assignSubjectAndClassToFaculty = async (req, res) => {
       });
     }
 
-    // 2. Check faculty exists and role
+    // Get active academic year
+    const activeYear = await AcademicYear.findOne({ isActive: true });
+    if (!activeYear) {
+      return res.status(400).json({
+        success: false,
+        message: "No active academic year set. Please set academic year first.",
+      });
+    }
+
+    const academicYear = activeYear.year;
+
+    // 2. Check faculty exists and role 
     const faculty = await User.findById(facultyId);
     if (!faculty) {
       return res.status(404).json({
@@ -146,7 +154,7 @@ export const assignSubjectAndClassToFaculty = async (req, res) => {
       });
     }
 
-    // 3. Check subject exists
+    // 3. Check subject exists 
     const subject = await Subject.findById(subjectId);
     if (!subject) {
       return res.status(404).json({
@@ -155,7 +163,7 @@ export const assignSubjectAndClassToFaculty = async (req, res) => {
       });
     }
 
-    // 4. Check class exists
+    // 4. Check class exists 
     const classObj = await Class.findById(classId);
     if (!classObj) {
       return res.status(404).json({
@@ -164,11 +172,12 @@ export const assignSubjectAndClassToFaculty = async (req, res) => {
       });
     }
 
-    // 5. Prevent duplicate assignment
+    // 5. Prevent duplicate assignment 
     const existingAssignment = await TeachingAssignment.findOne({
       facultyId,
       subjectId,
       classId,
+      academicYear
     });
 
     if (existingAssignment) {
@@ -178,11 +187,12 @@ export const assignSubjectAndClassToFaculty = async (req, res) => {
       });
     }
 
-    // 6. Create assignment
+    // 6. Create assignment 
     const assignment = await TeachingAssignment.create({
       facultyId,
       subjectId,
       classId,
+      academicYear
     });
 
     return res.status(201).json({
@@ -291,5 +301,53 @@ export const getAllFaculties = async (req, res) => {
     res.json({ success: true, data: faculties });
   } catch (err) {
     res.status(500).json({ success: false, message: "Failed to fetch faculties" });
+  }
+};
+
+// Get active academic year
+export const getActiveAcademicYear = async (req, res) => {
+  try {
+    const academicYear = await AcademicYear.findOne({ isActive: true });
+
+    if (!academicYear) {
+      return res.status(404).json({
+        message: "No active academic year found",
+      });
+    }
+
+    res.status(200).json({
+      year: academicYear.year,
+    });
+  } catch (error) {
+    console.error("Error fetching active academic year:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Set active academic year
+export const setAcademicYear = async (req, res) => {
+  try {
+    const { year } = req.body;
+
+    if (!year) {
+      return res.status(400).json({ message: "Academic year is required" });
+    }
+
+    //  Deactivate all previous years
+    await AcademicYear.updateMany({}, { isActive: false });
+
+    //  Create NEW academic year
+    const academicYear = await AcademicYear.create({
+      year,
+      isActive: true,
+    });
+
+    return res.status(201).json({
+      message: "Academic year set successfully",
+      data: academicYear,
+    });
+  } catch (error) {
+    console.error("Academic year error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import API from "../services/api";
 import showToast from "../utils/toast";
 
+import { getActiveAcademicYear } from "../services/teachingAssignmentApi";
+
 function DashboardPage() {
   const user = JSON.parse(localStorage.getItem("user"));
   const [classes, setClasses] = useState([]);
@@ -11,6 +13,8 @@ function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [updatedActivitiesCount, setUpdatedActivitiesCount] = useState(0);
+  const [academicYear, setAcademicYear] = useState("");
+
 
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -48,7 +52,7 @@ function DashboardPage() {
               );
 
               const arr = resMarks.data?.marks || [];
-              
+
               if (arr.length === 0) {
                 console.log(`No marks found for class ${cls._id}, subject ${sub._id}`);
               }
@@ -62,7 +66,7 @@ function DashboardPage() {
 
                 // Convert to string to ensure consistent key matching
                 const studentIdStr = String(studentId);
-                
+
                 marksMap[studentIdStr] = {
                   ...marksMap[studentIdStr],
                   [sub._id]: {
@@ -113,88 +117,103 @@ function DashboardPage() {
     }
   }, [user?.id, refreshKey]);
 
-const downloadSubjectReport = async (classId, subjectId, subjectName, className) => {
-  try {
-    setDownloading(true);
 
-    /* ----------------- COLLECT ACTIVITY IDS SAFELY ----------------- */
-    const activityIdsSet = new Set();
+  useEffect(() => {
+    const fetchAcademicYear = async () => {
+      try {
+        const res = await getActiveAcademicYear();
+        setAcademicYear(res.year); // backend returns { year: "2024-25" }
+      } catch (err) {
+        console.error("No active academic year found");
+      }
+    };
 
-    Object.values(marksData).forEach(studentMarks => {
-      const subjectMarks = studentMarks?.[subjectId];
-      if (!subjectMarks?.activities) return;
+    fetchAcademicYear();
+  }, []);
 
-      subjectMarks.activities.forEach(activity => {
-        if (!activity?.activityId) return;
 
-        // Normalize activityId (handles ObjectId / populated object / string)
-        const activityId =
-          typeof activity.activityId === "object"
-            ? activity.activityId._id || activity.activityId
-            : activity.activityId;
+  const downloadSubjectReport = async (classId, subjectId, subjectName, className) => {
+    try {
+      setDownloading(true);
 
-        activityIdsSet.add(String(activityId));
+      /* ----------------- COLLECT ACTIVITY IDS SAFELY ----------------- */
+      const activityIdsSet = new Set();
+
+      Object.values(marksData).forEach(studentMarks => {
+        const subjectMarks = studentMarks?.[subjectId];
+        if (!subjectMarks?.activities) return;
+
+        subjectMarks.activities.forEach(activity => {
+          if (!activity?.activityId) return;
+
+          // Normalize activityId (handles ObjectId / populated object / string)
+          const activityId =
+            typeof activity.activityId === "object"
+              ? activity.activityId._id || activity.activityId
+              : activity.activityId;
+
+          activityIdsSet.add(String(activityId));
+        });
       });
-    });
 
-    if (activityIdsSet.size === 0) {
-      showToast("error", "No marks available for this subject");
-      return;
-    }
-
-    /* ----------------- FETCH ACTIVITIES ----------------- */
-    const resActivities = await API.get("/activities/all");
-    const allActivities = (resActivities.data.activities || []).map(a => ({
-      ...a,
-      _id: String(a._id),
-      status: a.status?.trim()
-    }));
-
-    /* ----------------- FILTER VALID ACTIVITIES ----------------- */
-    const validActivityIds = [];
-
-    activityIdsSet.forEach(actId => {
-      const activity = allActivities.find(a => a._id === actId);
-
-      if (!activity) {
-        console.warn("Activity not found in /activities/all:", actId);
+      if (activityIdsSet.size === 0) {
+        showToast("error", "No marks available for this subject");
         return;
       }
 
-      if (activity.status === "Marks_Updated") {
-        validActivityIds.push(actId);
+      /* ----------------- FETCH ACTIVITIES ----------------- */
+      const resActivities = await API.get("/activities/all");
+      const allActivities = (resActivities.data.activities || []).map(a => ({
+        ...a,
+        _id: String(a._id),
+        status: a.status?.trim()
+      }));
+
+      /* ----------------- FILTER VALID ACTIVITIES ----------------- */
+      const validActivityIds = [];
+
+      activityIdsSet.forEach(actId => {
+        const activity = allActivities.find(a => a._id === actId);
+
+        if (!activity) {
+          console.warn("Activity not found in /activities/all:", actId);
+          return;
+        }
+
+        if (activity.status === "Marks_Updated") {
+          validActivityIds.push(actId);
+        }
+      });
+
+      if (validActivityIds.length === 0) {
+        showToast("error", "No activities with updated marks for this subject");
+        return;
       }
-    });
 
-    if (validActivityIds.length === 0) {
-      showToast("error", "No activities with updated marks for this subject");
-      return;
+      /* ----------------- DOWNLOAD REPORT ----------------- */
+      const response = await API.post(
+        "/marks/download-combined",
+        { activityIds: validActivityIds },
+        { responseType: "blob" }
+      );
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${className}_${subjectName}_Report_${new Date().toLocaleDateString()}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      showToast("success", `Report for ${subjectName} downloaded successfully`);
+    } catch (err) {
+      console.error("Download error:", err);
+      showToast("error", "Error downloading report");
+    } finally {
+      setDownloading(false);
     }
-
-    /* ----------------- DOWNLOAD REPORT ----------------- */
-    const response = await API.post(
-      "/marks/download-combined",
-      { activityIds: validActivityIds },
-      { responseType: "blob" }
-    );
-
-    const url = window.URL.createObjectURL(new Blob([response.data]));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${className}_${subjectName}_Report_${new Date().toLocaleDateString()}.xlsx`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
-
-    showToast("success", `Report for ${subjectName} downloaded successfully`);
-  } catch (err) {
-    console.error("Download error:", err);
-    showToast("error", "Error downloading report");
-  } finally {
-    setDownloading(false);
-  }
-};
+  };
 
 
   // Removed attendance handling functions
@@ -203,20 +222,27 @@ const downloadSubjectReport = async (classId, subjectId, subjectName, className)
 
   return (
     <div style={{ padding: "20px" }}>
-      <h2 style={{ textAlign: "center", marginBottom: "30px" }}>
-        Dashboard - Welcome {user?.name} 👋
+      <h2 style={{ textAlign: "center", marginBottom: "10px" }}>
+        Dashboard – Welcome {user?.name} 👋
       </h2>
+
+      {academicYear && (
+        <p style={{ textAlign: "center", color: "#555", marginBottom: "25px" }}>
+          <b>Academic Year:</b> {academicYear}
+        </p>
+      )}
+
       <div style={{ textAlign: "center", marginBottom: "20px" }}>
-        <button 
-          onClick={() => setRefreshKey(prev => prev + 1)} 
+        <button
+          onClick={() => setRefreshKey(prev => prev + 1)}
           style={{ padding: "10px 20px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "5px", cursor: "pointer", marginRight: "10px" }}
         >
           Refresh Data
         </button>
-        
+
         {updatedActivitiesCount < 2 && (
           <p style={{ color: "#d9534f", marginTop: "10px", fontSize: "14px" }}>
-             Marks updated for {updatedActivitiesCount}/2 activities. Please update marks for both activities before downloading.
+            Marks updated for {updatedActivitiesCount}/2 activities. Please update marks for both activities before downloading.
           </p>
         )}
       </div>
@@ -238,7 +264,7 @@ const downloadSubjectReport = async (classId, subjectId, subjectName, className)
               <div key={sub._id} style={{ marginBottom: 20 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                   <h4>{sub.name}</h4>
-                  <button 
+                  <button
                     onClick={() => downloadSubjectReport(cls._id, sub._id, sub.name, cls.name)}
                     disabled={downloading}
                     style={{
@@ -288,10 +314,10 @@ const downloadSubjectReport = async (classId, subjectId, subjectName, className)
 
                       const act1Data = data.activities?.[0];
                       const act2Data = data.activities?.[1];
-                      
+
                       const act1Marks = act1Data?.totalRubricMarks || 0;
                       const act1Attendance = act1Data?.attendance || 'Present';
-                      
+
                       const act2Marks = act2Data?.totalRubricMarks || 0;
                       const act2Attendance = act2Data?.attendance || 'Present';
 

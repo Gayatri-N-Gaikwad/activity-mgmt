@@ -8,7 +8,9 @@ import {
   uploadStudentsFromExcel,
   getAllClasses,
   getAllSubjects,
-  getAllFaculties
+  getAllFaculties,
+  setAcademicYear,
+  getActiveAcademicYear
 } from "../controllers/adminController.js";
 import { isAdmin } from "../middlewares/isAdmin.js";
 
@@ -55,6 +57,11 @@ router.post(
   uploadStudentsFromExcel
 );
 
+/* ---------- Academic Year Routes ---------- */
+router.post("/academic-year", setAcademicYear);
+
+
+router.get("/academic-year/active", getActiveAcademicYear);
 router.get("/classes", getAllClasses);
 router.get("/subjects", getAllSubjects);
 router.get("/faculties",  getAllFaculties);

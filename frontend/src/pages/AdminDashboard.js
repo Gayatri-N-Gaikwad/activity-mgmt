@@ -5,12 +5,14 @@ import {
   addClass,
   addSubject,
   assignFaculty,
-    getAllClasses,
+  getAllClasses,
   getAllSubjects,
   getAllFaculties,
   uploadStudentsExcel
 } from "../services/teachingAssignmentApi";
 import showToast from "../utils/toast";
+
+import { setAcademicYear as setAcademicYearApi, getActiveAcademicYear } from "../services/teachingAssignmentApi";
 
 
 function AdminDashboard() {
@@ -33,6 +35,10 @@ function AdminDashboard() {
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [faculties, setFaculties] = useState([]);
+
+  const [academicYear, setAcademicYear] = useState("");
+  const [activeAcademicYear, setActiveAcademicYear] = useState("");
+
 
   // Check if user is admin
   useEffect(() => {
@@ -72,6 +78,14 @@ function AdminDashboard() {
       }
     }
   }, [activeTab]);
+
+  // Fetch active academic year
+  useEffect(() => {
+    getActiveAcademicYear()
+      .then((res) => setActiveAcademicYear(res.year))
+      .catch(() => { });
+  }, []);
+
 
   // Handlers
 
@@ -151,6 +165,22 @@ function AdminDashboard() {
     }
   };
 
+  const handleSetAcademicYear = async () => {
+  if (!academicYear) {
+    showToast("error", "Enter academic year");
+    return;
+  }
+
+  try {
+    await setAcademicYearApi(academicYear); 
+    showToast("success", "Academic year set successfully");
+    setActiveAcademicYear(academicYear); // update UI
+    setAcademicYear(""); // clear input
+  } catch (err) {
+    showToast("error", "Failed to set academic year");
+  }
+};
+
   return (
     <div style={{ padding: "20px" }}>
       <h1>Admin Dashboard</h1>
@@ -165,6 +195,9 @@ function AdminDashboard() {
         <button onClick={() => setActiveTab("assign")}>Assign Faculty</button> {" "}
         <button onClick={() => setActiveTab("uploadStudents")}>
           Upload Students
+        </button>
+        <button onClick={() => setActiveTab("academicYear")}>
+          Academic Year
         </button>
       </div>
 
@@ -320,6 +353,36 @@ function AdminDashboard() {
           </p>
         </>
       )}
+
+      {activeTab === "academicYear" && (
+        <>
+          <h2>Academic Year</h2>
+
+          {activeAcademicYear && (
+            <p>
+              <b>Current Academic Year:</b> {activeAcademicYear}
+            </p>
+          )}
+
+          <input
+            type="text"
+            placeholder="e.g. 2024-25"
+            value={academicYear}
+            onChange={(e) => setAcademicYear(e.target.value)}
+          />
+
+          <br /><br />
+
+          <button onClick={handleSetAcademicYear}>
+            Set Academic Year
+          </button>
+
+          <p style={{ marginTop: "10px", fontSize: "14px", color: "gray" }}>
+            This academic year will be automatically used while assigning faculty.
+          </p>
+        </>
+      )}
+
     </div>
   );
 }
