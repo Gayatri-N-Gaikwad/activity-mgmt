@@ -10,6 +10,7 @@ function DashboardPage() {
   const [subjects, setSubjects] = useState({});
   const [students, setStudents] = useState([]);
   const [marksData, setMarksData] = useState({});
+  const [activityMaxMarks, setActivityMaxMarks] = useState({}); // key: subjectId, value: sum of max marks
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [updatedActivitiesCount, setUpdatedActivitiesCount] = useState(0);
@@ -17,6 +18,15 @@ function DashboardPage() {
 
 
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // Normalize activityId whether it's populated or plain string/ObjectId
+  const getActivityId = (raw) => {
+    if (!raw) return null;
+    if (typeof raw === "object") {
+      return String(raw._id || raw.id || raw);
+    }
+    return String(raw);
+  };
 
   useEffect(() => {
     if (!user?.id) return;
@@ -32,6 +42,7 @@ function DashboardPage() {
         let subjectMap = {};
         let studentMap = {};
         let marksMap = {};
+        let maxMarksMap = {}; // Track sum of max marks per subject
 
         for (const cls of classList) {
           // fetch subjects
@@ -44,7 +55,7 @@ function DashboardPage() {
           const resStudents = await API.get(`/activities/class/${cls._id}/students`);
           studentMap[cls._id] = resStudents.data.students || [];
 
-          // fetch marks for each subject
+          // fetch marks for each subject and calculate activity max marks
           for (const sub of subjectMap[cls._id]) {
             try {
               const resMarks = await API.get(
@@ -56,6 +67,35 @@ function DashboardPage() {
               if (arr.length === 0) {
                 console.log(`No marks found for class ${cls._id}, subject ${sub._id}`);
               }
+
+              // Collect unique activities to calculate max marks
+              const uniqueActivityIds = new Set();
+              arr.forEach((m) => {
+                if (m.activities && Array.isArray(m.activities)) {
+                  m.activities.forEach((act) => {
+                    const actId = getActivityId(act.activityId);
+                    if (actId) uniqueActivityIds.add(actId);
+                  });
+                }
+              });
+
+              // Fetch rubric for each unique activity to get max marks
+              let sumMaxMarks = 0;
+              for (const actId of uniqueActivityIds) {
+                try {
+                  const actRes = await API.get(`/activities/${actId}`);
+                  const rubric = actRes.data?.rubric || [];
+                  const actMaxMarks = rubric.reduce(
+                    (sum, r) => sum + Number(r.maxMarks || 0),
+                    0
+                  );
+                  sumMaxMarks += actMaxMarks;
+                } catch (e) {
+                  console.error(`Error fetching activity ${actId} rubric:`, e);
+                }
+              }
+
+              maxMarksMap[String(sub._id)] = sumMaxMarks || 0;
 
               arr.forEach((m) => {
                 const studentId = m.studentId?._id;
@@ -84,6 +124,7 @@ function DashboardPage() {
         setSubjects(subjectMap);
         setStudents(Object.values(studentMap).flat());
         setMarksData(marksMap);
+        setActivityMaxMarks(maxMarksMap);
       } catch (err) {
         console.error("Dashboard loading error:", err);
       } finally {
@@ -260,6 +301,23 @@ function DashboardPage() {
             const classStudents = students.filter((s) => String(s.classId) === String(cls._id));
             if (!classStudents.length) return null;
 
+            const subjectMaxMarks = activityMaxMarks[String(sub._id)] || 0;
+
+            // Determine the ordered list of activities for this subject (use first student with data)
+            let activityList = [];
+            const firstWithActivities = classStudents.find((stu) => {
+              const data = marksData[String(stu._id)]?.[sub._id];
+              return data?.activities?.length > 0;
+            });
+
+            if (firstWithActivities) {
+              const data = marksData[String(firstWithActivities._id)]?.[sub._id];
+              activityList = (data?.activities || []).map((act, idx) => ({
+                id: getActivityId(act.activityId),
+                name: act.activityId?.name || `Activity ${idx + 1}`,
+              }));
+            }
+
             return (
               <div key={sub._id} style={{ marginBottom: 20 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
@@ -295,11 +353,14 @@ function DashboardPage() {
                     <tr>
                       <th>Roll No</th>
                       <th>Student</th>
-                      <th>Activity 1</th>
-                      <th>Activity 1 Attendance</th>
-                      <th>Activity 2</th>
-                      <th>Activity 2 Attendance</th>
-                      <th>Total (out of 15)</th>
+                      {activityList.map((act, idx) => (
+                        <React.Fragment key={act.id || idx}>
+                          <th>{act.name || `Activity ${idx + 1}`}</th>
+                          <th>{act.name || `Activity ${idx + 1}`} Attendance</th>
+                        </React.Fragment>
+                      ))}
+                      <th>Total {subjectMaxMarks > 0 ? `(out of ${subjectMaxMarks})` : ""}</th>
+                      <th>Normalized out of 15</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -312,29 +373,43 @@ function DashboardPage() {
                           totalMarks: 0,
                         };
 
-                      const act1Data = data.activities?.[0];
-                      const act2Data = data.activities?.[1];
+                      // Build a map for quick lookup by activity id
+                      const activityMap = new Map(
+                        (data.activities || []).map((a) => [getActivityId(a.activityId), a])
+                      );
 
-                      const act1Marks = act1Data?.totalRubricMarks || 0;
-                      const act1Attendance = act1Data?.attendance || 'Present';
+                      // Prepare per-activity cells and compute totals
+                      let total = 0;
+                      const activityCells = activityList.map((act, idx) => {
+                        const entry = activityMap.get(act.id);
+                        const marks = entry?.totalRubricMarks || 0;
+                        const attendance = entry?.attendance || 'Present';
+                        const numeric = attendance === 'Present' ? marks : 0;
+                        total += numeric;
+                        return {
+                          key: act.id || idx,
+                          marks,
+                          attendance,
+                        };
+                      });
 
-                      const act2Marks = act2Data?.totalRubricMarks || 0;
-                      const act2Attendance = act2Data?.attendance || 'Present';
-
-                      // Calculate total (only include marks from present students)
-                      const act1Numeric = act1Attendance === 'Present' ? act1Marks : 0;
-                      const act2Numeric = act2Attendance === 'Present' ? act2Marks : 0;
-                      const total = act1Numeric + act2Numeric;
+                      // Calculate normalized marks out of 15
+                      const normalizedMarks = subjectMaxMarks > 0 
+                        ? Math.round((total / subjectMaxMarks) * 15)
+                        : 0;
 
                       return (
                         <tr key={stu._id}>
                           <td>{stu.rollNumber}</td>
                           <td>{stu.name}</td>
-                          <td>{act1Marks}</td>
-                          <td>{act1Attendance}</td>
-                          <td>{act2Marks}</td>
-                          <td>{act2Attendance}</td>
+                          {activityCells.map((c) => (
+                            <React.Fragment key={c.key}>
+                              <td>{c.marks}</td>
+                              <td>{c.attendance}</td>
+                            </React.Fragment>
+                          ))}
                           <td>{total}</td>
+                          <td>{normalizedMarks}</td>
                         </tr>
                       );
                     })}

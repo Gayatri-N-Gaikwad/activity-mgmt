@@ -13,9 +13,16 @@ export default function StatusConfirmModal({ open, onClose, onConfirm, activityN
   };
 
   const handleConfirm = () => {
-    if (isConductedChange && files.length === 0) {
-      alert('Please upload at least one model answer file to confirm the activity was conducted.');
-      return;
+    if (isConductedChange) {
+      if (files.length === 0) {
+        alert('Please upload at least one model answer PDF to confirm the activity was conducted.');
+        return;
+      }
+      const nonPdf = files.some(f => !(f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')));
+      if (nonPdf) {
+        alert('Only PDF files are allowed for model answers.');
+        return;
+      }
     }
     onConfirm(reason, files);
     setReason('');
@@ -39,12 +46,12 @@ export default function StatusConfirmModal({ open, onClose, onConfirm, activityN
         {isConductedChange && (
           <div style={{ marginTop: 16 }}>
             <label style={{ display: 'block', marginBottom: 8, fontWeight: 'bold' }}>
-              Upload Model Answer Files (required)*:
+              Upload Model Answer PDF (required)*:
             </label>
             <input
               type="file"
               multiple
-              accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+              accept=".pdf"
               onChange={handleFileChange}
               style={{ marginBottom: 8 }}
             />

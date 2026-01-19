@@ -270,7 +270,7 @@ export const getMarksByClassSubject = async (req, res) => {
       .populate("studentId", "name rollNumber classId")
       .populate({
         path: "activities.activityId",
-        select: "name scheduleDate status"
+        select: "_id name scheduleDate status"
       })
       .lean();
 

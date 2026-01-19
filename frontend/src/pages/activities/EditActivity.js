@@ -19,8 +19,6 @@ function EditActivity() {
   const [rubricDirty, setRubricDirty] = useState(false);
   const [marksValue, setMarksValue] = useState(0);
   const [marksDirty, setMarksDirty] = useState(false);
-  const [siblingMarksLocked, setSiblingMarksLocked] = useState(false);
-
   const simpleRubric = useMemo(() => rubricRows.length <= 1, [rubricRows]);
 
   // Lock based on THIS activity's own status
@@ -30,11 +28,8 @@ function EditActivity() {
     [activity.status]
   );
 
-  // Rubric/marks are locked if this activity is locked OR a sibling already has final marks
-  const rubricLocked = useMemo(
-    () => ownLocked || siblingMarksLocked,
-    [ownLocked, siblingMarksLocked]
-  );
+  // Rubric/marks are locked only if this activity itself is locked
+  const rubricLocked = useMemo(() => ownLocked, [ownLocked]);
 
   const fetchActivity = useCallback(async () => {
     const res = await API.get(`/activities/${id}`);
@@ -52,28 +47,6 @@ function EditActivity() {
     }
     setMarksDirty(false);
 
-    // Check sibling activities (same assignmentId) to see if any are Conducted or have final marks
-    try {
-      if (act.assignmentId) {
-        const siblingsRes = await API.get(
-          `/activities/by-assignment/${act.assignmentId}`
-        );
-        const siblings = Array.isArray(siblingsRes.data.activities)
-          ? siblingsRes.data.activities
-          : [];
-        const hasLockedSibling = siblings.some(
-          (a) =>
-            a._id !== act._id &&
-            (a.status === "Conducted" || a.status === "Marks_Updated")
-        );
-        setSiblingMarksLocked(hasLockedSibling);
-      } else {
-        setSiblingMarksLocked(false);
-      }
-    } catch (err) {
-      console.error("Error checking sibling activities", err);
-      setSiblingMarksLocked(false);
-    }
   }, [id]);
 
 
@@ -105,8 +78,8 @@ function EditActivity() {
             showToast('error', 'Enter a valid numeric value for marks');
             return;
           }
-          if (numericMarks <= 0 || numericMarks >= 15) {
-            showToast('error', 'Marks must be between 1 and 14');
+          if (numericMarks <= 0) {
+            showToast('error', 'Marks must be greater than zero');
             return;
           }
           toSend.marks = numericMarks;
@@ -116,13 +89,6 @@ function EditActivity() {
           name: row.name || `Criteria ${idx + 1}`,
           marks: Number(row.maxMarks || 0),
         }));
-
-        const total = prepared.reduce((sum, row) => sum + row.marks, 0);
-        if (total !== 15) {
-          showToast('error', 'Rubric marks must sum to 15');
-          return;
-        }
-
         toSend.rubric = prepared;
       }
     }
@@ -175,11 +141,10 @@ useEffect(() => {
 
         {simpleRubric ? (
           <div className="form-row">
-            <label>Activity Marks (out of 15)</label>
+            <label>Activity Marks</label>
             <input
               type="number"
               min="1"
-              max="14"
               value={marksValue}
               onChange={(e) => {
                 setMarksValue(e.target.value);
@@ -189,13 +154,13 @@ useEffect(() => {
             />
             {rubricLocked && (
               <small style={{ color: '#666' }}>
-                Marks locked once this activity or its sibling activity has final marks.
+                Marks locked once this activity is Conducted or Marks Updated.
               </small>
             )}
           </div>
         ) : (
           <div className="form-row">
-            <label>Rubric Criteria (must total 15)</label>
+            <label>Rubric Criteria</label>
             {rubricRows.map((row, idx) => (
               <div key={row._id || idx} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
                 <input
@@ -212,7 +177,6 @@ useEffect(() => {
                 <input
                   type="number"
                   min="0"
-                  max="15"
                   value={row.maxMarks || 0}
                   onChange={(e) => {
                     const next = [...rubricRows];

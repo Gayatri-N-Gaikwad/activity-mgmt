@@ -17,7 +17,16 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  fileFilter: (req, file, cb) => {
+    const isPdf = file.mimetype === "application/pdf" || path.extname(file.originalname).toLowerCase() === ".pdf";
+    if (!isPdf) {
+      return cb(new Error("Only PDF files are allowed for model answers"));
+    }
+    cb(null, true);
+  }
+});
 
 import {
   createActivity,

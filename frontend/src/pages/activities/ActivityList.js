@@ -300,17 +300,36 @@ function ActivityList() {
               showToast("error", "Please upload at least one model answer file");
               return;
             }
+            if (files && files.length > 0) {
+              const invalid = files.some(
+                (f) =>
+                  !(f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"))
+              );
+              if (invalid) {
+                showToast("error", "Only PDF files are allowed for model answers");
+                return;
+              }
+            }
 
             try {
               const formData = new FormData();
               formData.append("status", modalPayload.newStatus);
-              if (reason) formData.append("statusChangeReason", reason);
+              if (reason) {
+                formData.append("statusChangeReason", reason);
+              }
 
-              files.forEach(file => {
-                formData.append("modelAnswerFiles", file);
+              if (files && files.length > 0) {
+                files.forEach((file) => {
+                  formData.append("modelAnswerFiles", file);
+                });
+              }
+
+              await API.put(`/activities/update/${modalPayload.act._id}`, formData, {
+                headers: {
+                  "Content-Type": "multipart/form-data",
+                },
               });
 
-              await API.put(`/activities/update/${modalPayload.act._id}`, formData);
               await loadActivities(userId);
               showToast("success", "Status updated");
             } catch (err) {

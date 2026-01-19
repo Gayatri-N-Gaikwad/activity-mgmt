@@ -188,7 +188,7 @@ function AdminDashboard() {
       {/* Navigation */}
       <div style={{ marginBottom: "20px" }}>
         <button onClick={() => setActiveTab("assignments")}>
-          View Assignments
+          Subject Allocations
         </button>{" "}
         <button onClick={() => setActiveTab("addClass")}>Add Class</button>{" "}
         <button onClick={() => setActiveTab("addSubject")}>Add Subject</button>{" "}

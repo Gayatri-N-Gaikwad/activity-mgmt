@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import path from "path";
 import Activity from "../models/Activity.js";
 import * as RubricCriteriaMod from "../models/RubricCriteria.js";
 import * as StudentActivityMarksMod from "../models/StudentActivityMarks.js";
@@ -52,43 +53,13 @@ export const createActivity = async (req, res) => {
       });
     }
 
-    // Find existing activities for this assignment
-    const existingActivities = await Activity.find({ assignmentId });
-
-    if (existingActivities.length >= 2) {
-      return res.status(400).json({
-        error: "Only two activities allowed per class/subject",
-      });
+    // No cap on activities per assignment; simply validate provided marks
+    const numericMarks = Number(marks);
+    if (!Number.isFinite(numericMarks) || numericMarks <= 0) {
+      return res.status(400).json({ error: "Marks must be a positive number" });
     }
 
-    let rubricCriteria = [];
-
-    if (existingActivities.length === 0) {
-      // First activity → user-provided marks
-      const m = Number(marks);
-      if (isNaN(m) || m <= 0 || m > 15) {
-        return res.status(400).json({
-          error: "Marks must be between 1 and 15",
-        });
-      }
-      rubricCriteria = [{ name: name || "Activity", marks: m }];
-    } else if (existingActivities.length === 1) {
-      // Second activity → auto calculate
-      const prevRubric = await RubricCriteria.findOne({
-        activityId: existingActivities[0]._id,
-      });
-      const prevMarks = prevRubric ? Number(prevRubric.maxMarks) : 0;
-
-      const m = 15 - prevMarks;
-      if (m <= 0) {
-        return res.status(400).json({
-          error:
-            "Invalid marks distribution. Previous activity used all 15 marks.",
-        });
-      }
-
-      rubricCriteria = [{ name: name || "Activity", marks: m }];
-    }
+    const rubricCriteria = [{ name: name || "Activity", marks: numericMarks }];
 
     // Create activity
     const activity = await Activity.create({
@@ -290,9 +261,21 @@ export const updateActivity = async (req, res) => {
             .status(400)
             .json({
               error:
-                "At least one model answer file must be uploaded when marking activity as conducted",
+                "At least one model answer PDF must be uploaded when marking activity as conducted",
             });
         }
+
+        const nonPdf = req.files.some(
+          (f) =>
+            f.mimetype !== "application/pdf" &&
+            path.extname(f.originalname).toLowerCase() !== ".pdf"
+        );
+        if (nonPdf) {
+          return res
+            .status(400)
+            .json({ error: "Only PDF files are allowed for model answers" });
+        }
+
         const filePaths = req.files.map((file) => `/uploads/${file.filename}`);
         updateFields.modelAnswerFiles = filePaths;
 
@@ -317,10 +300,6 @@ export const updateActivity = async (req, res) => {
           `Activity ${activity._id} has existing marks; skipping rubric update`
         );
       } else if (Array.isArray(rubric) && rubric.length > 0) {
-        const total = rubric.reduce((s, r) => s + Number(r.marks || 0), 0);
-        if (total !== 15)
-          return res.status(400).json({ error: "Rubric marks must sum to 15" });
-
         await RubricCriteria.deleteMany({ activityId: activity._id });
         const criteriaDocs = rubric.map((r) => ({
           activityId: activity._id,
@@ -346,15 +325,6 @@ export const updateActivity = async (req, res) => {
           .json({ error: "Marks must be greater than zero" });
       }
 
-      if (numericMarks >= 15) {
-        return res
-          .status(400)
-          .json({
-            error:
-              "Keep at least 1 mark reserved for the second activity (max 14)",
-          });
-      }
-
       const marksExist = await StudentActivityMarks.exists({
         activityId: activity._id,
       });
@@ -364,47 +334,6 @@ export const updateActivity = async (req, res) => {
           .json({
             error: "Cannot change marks after students have been graded",
           });
-      }
-
-      const assignmentId = activity.assignmentId;
-      if (!assignmentId) {
-        return res
-          .status(400)
-          .json({ error: "Activity is missing assignment linkage" });
-      }
-
-      const siblings = await Activity.find({ assignmentId });
-      const other = siblings.find(
-        (a) => a._id.toString() !== activity._id.toString()
-      );
-
-      if (other) {
-        const otherMarksExist = await StudentActivityMarks.exists({
-          activityId: other._id,
-        });
-        if (otherMarksExist) {
-          return res
-            .status(400)
-            .json({
-              error:
-                "Cannot rebalance marks: sibling activity already has student marks",
-            });
-        }
-
-        const siblingMarks = 15 - numericMarks;
-        if (siblingMarks <= 0) {
-          return res
-            .status(400)
-            .json({
-              error: "At least 1 mark must remain for the sibling activity",
-            });
-        }
-
-        await RubricCriteria.findOneAndUpdate(
-          { activityId: other._id },
-          { name: other.name || "Activity", maxMarks: siblingMarks },
-          { upsert: true, new: true }
-        );
       }
 
       await RubricCriteria.findOneAndUpdate(
