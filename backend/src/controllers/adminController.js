@@ -351,3 +351,54 @@ export const setAcademicYear = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
+export const getAdminActivities = async (req, res) => {
+  try {
+    console.log("ADMIN ACTIVITIES QUERY:", req.query);
+
+    const { facultyId, subjectId, classId } = req.query;
+
+    // 1️⃣ Validate query params
+    if (!facultyId || !subjectId || !classId) {
+      return res.status(400).json({
+        message: "facultyId, subjectId, and classId are required",
+      });
+    }
+
+    // 2️⃣ Find teaching assignment
+    const assignment = await TeachingAssignment.findOne({
+      facultyId,
+      subjectId,
+      classId,
+    });
+
+    console.log("FOUND ASSIGNMENT:", assignment);
+
+    if (!assignment) {
+      return res.status(404).json({
+        message: "Teaching assignment not found",
+      });
+    }
+
+    // 3️⃣ Find activities using assignmentId
+    const activities = await Activity.find({
+      assignmentId: assignment._id,
+    })
+      .populate("coordinatorId", "name email")
+      .sort({ scheduleDate: -1 });
+
+      console.log("FOUND ACTIVITIES:", activities);
+
+    // 4️⃣ Return result
+    return res.status(200).json({
+      count: activities.length,
+      activities,
+    });
+  } catch (error) {
+    console.error("Get admin activities error:", error);
+    return res.status(500).json({
+      message: "Server error",
+    });
+  }
+};

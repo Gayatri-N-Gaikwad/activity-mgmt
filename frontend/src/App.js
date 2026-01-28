@@ -19,6 +19,7 @@ import ActivityDetails from "./pages/activities/ActivityDetails";
 
 // Admin
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminActivityList from "./pages/activities/AdminActivityList";
 
 function App() {
   const [backendStatus, setBackendStatus] = useState("Checking backend...");
@@ -57,12 +58,12 @@ function App() {
 
           {/* ⭐ Admin Dashboard */}
           <Route
-              path="/admin"
-              element={
-                <ProtectedRoute>
-                  <AdminDashboard />
-                </ProtectedRoute>
-              }
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
           />
 
           {/* ⭐ Activity Module Routes */}
@@ -116,6 +117,15 @@ function App() {
             element={
               <ProtectedRoute>
                 <ActivityDetails />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/activities"
+            element={
+              <ProtectedRoute>
+                <AdminActivityList />
               </ProtectedRoute>
             }
           />

@@ -37,7 +37,7 @@ import {
   deleteActivity,
   getActivitiesByAssignment,
   getActivitiesByClassSubject,
-  getStudentsByClass
+  getStudentsByClass,
 } from "../controllers/activityController.js";
 
 const router = express.Router();
@@ -83,6 +83,7 @@ router.delete(
   ensureRole(["Faculty", "Coordinator", "HOD", "admin"]),
   deleteActivity
 );
+
 
 
 // GET all students in a class

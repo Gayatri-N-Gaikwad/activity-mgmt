@@ -215,15 +215,24 @@ function AdminDashboard() {
                 <th>Class</th>
               </tr>
             </thead>
-            <tbody>
-              {assignments.map((a) => (
-                <tr key={a._id}>
-                  <td>{a.facultyId?.name}</td>
-                  <td>{a.subjectId?.name}</td>
-                  <td>{a.classId?.name}</td>
-                </tr>
-              ))}
-            </tbody>
+<tbody>
+  {assignments.map((a) => (
+    <tr
+      key={a._id}
+      style={{ cursor: "pointer" }}
+      onClick={() =>
+        navigate(
+          `/admin/activities?facultyId=${a.facultyId._id}&subjectId=${a.subjectId._id}&classId=${a.classId._id}`
+        )
+      }
+    >
+      <td>{a.facultyId?.name}</td>
+      <td>{a.subjectId?.name}</td>
+      <td>{a.classId?.name}</td>
+    </tr>
+  ))}
+</tbody>
+
           </table>
         </>
       )}
