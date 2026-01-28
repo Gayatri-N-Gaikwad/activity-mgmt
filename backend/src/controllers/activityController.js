@@ -7,6 +7,7 @@ import { scheduleActivityReminder } from "../utils/scheduler.js";
 import TeachingAssignment from "../models/TeachingAssignment.js";
 import Student from "../models/Student.js";
 import StudentSubjectMarks from "../models/StudentSubjectMarks.js";
+import AcademicYear from "../models/AcademicYear.js";
 
 // Handle CommonJS exports from model files (they use module.exports)
 const RubricCriteria = RubricCriteriaMod.default || RubricCriteriaMod;
@@ -27,6 +28,29 @@ export const createActivity = async (req, res) => {
     }
 
     const parsedDate = new Date(scheduleDate);
+
+    // ---------------- Academic Year validation ----------------
+    const academicYear = await AcademicYear.findOne({
+      isActive: true,
+    }).select("semesterStartDate semesterEndDate"); 
+
+    if (academicYear?.semesterStartDate && academicYear?.semesterEndDate) {
+      const onlyDate = (d) => {
+        const date = new Date(d);
+        date.setUTCHours(0, 0, 0, 0);
+        return date;
+      };
+
+      const start = onlyDate(academicYear.semesterStartDate); 
+      const end = onlyDate(academicYear.semesterEndDate);    
+      const scheduled = onlyDate(parsedDate);                 
+      
+      if (scheduled < start || scheduled > end) {
+        return res.status(400).json({
+          error: `Activity schedule date must be between ${start.toDateString()} and ${end.toDateString()}`,
+        });
+      }
+    }
 
     if (isNaN(parsedDate.getTime())) {
       return res.status(400).json({ error: "Invalid scheduleDate format" });

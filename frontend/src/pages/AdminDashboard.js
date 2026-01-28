@@ -39,6 +39,8 @@ function AdminDashboard() {
   const [academicYear, setAcademicYear] = useState("");
   const [activeAcademicYear, setActiveAcademicYear] = useState("");
 
+  const [semesterStartDate, setSemesterStartDate] = useState("");
+  const [semesterEndDate, setSemesterEndDate] = useState("");
 
   // Check if user is admin
   useEffect(() => {
@@ -81,9 +83,23 @@ function AdminDashboard() {
 
   // Fetch active academic year
   useEffect(() => {
-    getActiveAcademicYear()
-      .then((res) => setActiveAcademicYear(res.year))
-      .catch(() => { });
+    const loadAcademicYear = async () => {
+      try {
+        const res = await getActiveAcademicYear();
+
+        if (!res.data) {
+          // ✅ First-time case: nothing set yet
+          setActiveAcademicYear(null);
+          return;
+        }
+
+        setActiveAcademicYear(res.data.year);
+      } catch {
+        setActiveAcademicYear(null);
+      }
+    };
+
+    loadAcademicYear();
   }, []);
 
 
@@ -166,20 +182,36 @@ function AdminDashboard() {
   };
 
   const handleSetAcademicYear = async () => {
-  if (!academicYear) {
-    showToast("error", "Enter academic year");
-    return;
-  }
+    if (!academicYear || !semesterStartDate || !semesterEndDate) {
+      showToast("error", "Enter academic year, start date and end date");
+      return;
+    }
 
-  try {
-    await setAcademicYearApi(academicYear); 
-    showToast("success", "Academic year set successfully");
-    setActiveAcademicYear(academicYear); // update UI
-    setAcademicYear(""); // clear input
-  } catch (err) {
-    showToast("error", "Failed to set academic year");
-  }
-};
+    if (new Date(semesterEndDate) <= new Date(semesterStartDate)) {
+      showToast("error", "End date must be after start date");
+      return;
+    }
+
+    try {
+      await setAcademicYearApi({
+        year: academicYear,
+        semesterStartDate,
+        semesterEndDate,
+      });
+
+      showToast("success", "Academic year set successfully");
+
+      setActiveAcademicYear(academicYear);
+
+      //  Clear inputs
+      setAcademicYear("");
+      setSemesterStartDate("");
+      setSemesterEndDate("");
+    } catch (err) {
+      showToast("error", "Failed to set academic year");
+    }
+  };
+
 
   return (
     <div style={{ padding: "20px" }}>
@@ -215,23 +247,23 @@ function AdminDashboard() {
                 <th>Class</th>
               </tr>
             </thead>
-<tbody>
-  {assignments.map((a) => (
-    <tr
-      key={a._id}
-      style={{ cursor: "pointer" }}
-      onClick={() =>
-        navigate(
-          `/admin/activities?facultyId=${a.facultyId._id}&subjectId=${a.subjectId._id}&classId=${a.classId._id}`
-        )
-      }
-    >
-      <td>{a.facultyId?.name}</td>
-      <td>{a.subjectId?.name}</td>
-      <td>{a.classId?.name}</td>
-    </tr>
-  ))}
-</tbody>
+            <tbody>
+              {assignments.map((a) => (
+                <tr
+                  key={a._id}
+                  style={{ cursor: "pointer" }}
+                  onClick={() =>
+                    navigate(
+                      `/admin/activities?facultyId=${a.facultyId._id}&subjectId=${a.subjectId._id}&classId=${a.classId._id}`
+                    )
+                  }
+                >
+                  <td>{a.facultyId?.name}</td>
+                  <td>{a.subjectId?.name}</td>
+                  <td>{a.classId?.name}</td>
+                </tr>
+              ))}
+            </tbody>
 
           </table>
         </>
@@ -363,6 +395,11 @@ function AdminDashboard() {
         </>
       )}
 
+      {!activeAcademicYear && (
+        <p style={{ color: "gray", fontStyle: "italic" }}>
+          No academic year has been set yet.
+        </p>
+      )}
       {activeTab === "academicYear" && (
         <>
           <h2>Academic Year</h2>
@@ -382,12 +419,32 @@ function AdminDashboard() {
 
           <br /><br />
 
+          {/* ✅ Semester Start Date */}
+          <label>Semester Start Date</label><br />
+          <input
+            type="date"
+            value={semesterStartDate}
+            onChange={(e) => setSemesterStartDate(e.target.value)}
+          />
+
+          <br /><br />
+
+          {/* ✅ Semester End Date */}
+          <label>Semester End Date</label><br />
+          <input
+            type="date"
+            value={semesterEndDate}
+            onChange={(e) => setSemesterEndDate(e.target.value)}
+          />
+
+          <br /><br />
+
           <button onClick={handleSetAcademicYear}>
             Set Academic Year
           </button>
 
           <p style={{ marginTop: "10px", fontSize: "14px", color: "gray" }}>
-            This academic year will be automatically used while assigning faculty.
+            This academic year and semester duration will be used across the system.
           </p>
         </>
       )}

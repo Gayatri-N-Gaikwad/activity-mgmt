@@ -173,17 +173,32 @@ export const assignSubjectAndClassToFaculty = async (req, res) => {
     }
 
     // 5. Prevent duplicate assignment 
-    const existingAssignment = await TeachingAssignment.findOne({
+    // a) Same faculty already assigned same subject & class
+    const sameFacultyAssignment = await TeachingAssignment.findOne({
       facultyId,
       subjectId,
       classId,
-      academicYear
+      academicYear,
     });
 
-    if (existingAssignment) {
+    if (sameFacultyAssignment) {
       return res.status(409).json({
         success: false,
-        message: "This subject is already assigned to this faculty for this class",
+        message: "This faculty is already assigned this subject for this class",
+      });
+    }
+
+    // b) Another faculty already teaching this subject & class
+    const someoneElseAssignment = await TeachingAssignment.findOne({
+      subjectId,
+      classId,
+      academicYear,
+    });
+
+    if (someoneElseAssignment) {
+      return res.status(409).json({
+        success: false,
+        message: "This subject is already assigned to another faculty for this class",
       });
     }
 
@@ -307,19 +322,21 @@ export const getAllFaculties = async (req, res) => {
 // Get active academic year
 export const getActiveAcademicYear = async (req, res) => {
   try {
-    const academicYear = await AcademicYear.findOne({ isActive: true });
+    const activeYear = await AcademicYear.findOne({ isActive: true });
 
-    if (!academicYear) {
-      return res.status(404).json({
-        message: "No active academic year found",
+    // FIRST TIME CASE
+    if (!activeYear) {
+      return res.status(200).json({
+        data: null,
+        message: "No academic year set yet",
       });
     }
 
     res.status(200).json({
-      year: academicYear.year,
+      data: activeYear,
     });
   } catch (error) {
-    console.error("Error fetching active academic year:", error);
+    console.error("Get active academic year error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -327,20 +344,41 @@ export const getActiveAcademicYear = async (req, res) => {
 // Set active academic year
 export const setAcademicYear = async (req, res) => {
   try {
-    const { year } = req.body;
+    const { year, semesterStartDate, semesterEndDate } = req.body;
 
-    if (!year) {
-      return res.status(400).json({ message: "Academic year is required" });
+    if (!year || !semesterStartDate || !semesterEndDate) {
+      return res.status(400).json({
+        message: "Year, semester start date and end date are required",
+      });
+    }
+
+    if (new Date(semesterEndDate) <= new Date(semesterStartDate)) {
+      return res.status(400).json({
+        message: "Semester end date must be after start date",
+      });
     }
 
     //  Deactivate all previous years
     await AcademicYear.updateMany({}, { isActive: false });
 
-    //  Create NEW academic year
-    const academicYear = await AcademicYear.create({
-      year,
-      isActive: true,
-    });
+    //  Check if year already exists
+    let academicYear = await AcademicYear.findOne({ year });
+
+    if (academicYear) {
+      //  Update existing year
+      academicYear.isActive = true;
+      academicYear.semesterStartDate = semesterStartDate;
+      academicYear.semesterEndDate = semesterEndDate;
+      await academicYear.save();
+    } else {
+      //  Create new academic year
+      academicYear = await AcademicYear.create({
+        year,
+        semesterStartDate,
+        semesterEndDate,
+        isActive: true,
+      });
+    }
 
     return res.status(201).json({
       message: "Academic year set successfully",
@@ -351,6 +389,7 @@ export const setAcademicYear = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 
 export const getAdminActivities = async (req, res) => {
@@ -388,7 +427,7 @@ export const getAdminActivities = async (req, res) => {
       .populate("coordinatorId", "name email")
       .sort({ scheduleDate: -1 });
 
-      console.log("FOUND ACTIVITIES:", activities);
+    console.log("FOUND ACTIVITIES:", activities);
 
     // 4️⃣ Return result
     return res.status(200).json({

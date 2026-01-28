@@ -59,8 +59,8 @@ export const getAllFaculties = async () => {
 };
 
 
-export const setAcademicYear = async (year) => {
-  const res = await API.post("/admin/academic-year", { year });
+export const setAcademicYear = async (data) => {
+  const res = await API.post("/admin/academic-year", data);
   return res.data;
 };
 
