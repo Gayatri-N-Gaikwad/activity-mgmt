@@ -12,6 +12,7 @@ function AddMarks() {
   const [loading, setLoading] = useState(true);
   const [subjectId, setSubjectId] = useState(null);
   const [classId, setClassId] = useState(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -28,7 +29,7 @@ function AddMarks() {
         }
 
         console.log("Activity details:", activityDetails);
-        
+
         if (!activityDetails.assignmentId) {
           console.error("Activity missing assignmentId:", activityDetails);
           showToast("error", "Activity is missing assignment information");
@@ -42,15 +43,16 @@ function AddMarks() {
         const assignmentId =
           activityDetails.assignmentId?._id || activityDetails.assignmentId;
 
-        const resAssign = await API.get(
-          `/teaching-assignment/${assignmentId}`
-        );
+        const resAssign = await API.get(`/teaching-assignment/${assignmentId}`);
         const assignment = resAssign.data.assignment;
 
         console.log("Assignment response:", resAssign.data);
-        
+
         if (!assignment) {
-          console.error("Assignment not found for assignmentId:", activityDetails.assignmentId);
+          console.error(
+            "Assignment not found for assignmentId:",
+            activityDetails.assignmentId,
+          );
           showToast("error", "Teaching assignment not found");
           setLoading(false);
           return;
@@ -82,14 +84,14 @@ function AddMarks() {
         console.log("Fetching students for classId:", clsIdStr);
         const resStudents = await API.get(`/students/by-class/${clsIdStr}`);
         const studentsList = resStudents.data?.students || [];
-        
+
         console.log("Fetched students:", studentsList.length, studentsList);
-        
+
         if (studentsList.length === 0) {
           console.warn("No students found for classId:", clsIdStr);
           showToast("warning", "No students found for this class");
         }
-        
+
         setStudents(studentsList);
 
         // Fetch existing marks
@@ -100,14 +102,16 @@ function AddMarks() {
         const initialMarks = {};
         studentsList.forEach((student) => {
           const existing = existingMarks.find(
-            (m) => (m.studentId?._id || m.studentId) === student._id
+            (m) => (m.studentId?._id || m.studentId) === student._id,
           );
-          const existingActivity = existing?.activities.find(a => (a.activityId?._id || a.activityId) === activityId);
-          
+          const existingActivity = existing?.activities.find(
+            (a) => (a.activityId?._id || a.activityId) === activityId,
+          );
+
           initialMarks[student._id] = {
             rubricMarks: rubric.map((r) => {
               const existingMark = existingActivity?.rubricMarks.find(
-                (rm) => (rm.criteriaId?._id || rm.criteriaId) === r._id
+                (rm) => (rm.criteriaId?._id || rm.criteriaId) === r._id,
               );
               return {
                 criteriaId: r._id,
@@ -116,7 +120,7 @@ function AddMarks() {
                 marks: existingMark?.marks || 0,
               };
             }),
-            attendance: existingActivity?.attendance || 'Present',
+            attendance: existingActivity?.attendance || "Present",
             exists: !!existing,
             id: existing?._id,
           };
@@ -149,12 +153,15 @@ function AddMarks() {
   const handleAttendanceChange = (studentId, value) => {
     setMarksData((prev) => {
       const updated = { ...prev[studentId], attendance: value };
-      
+
       // If marking as absent, clear all marks
-      if (value === 'Absent') {
-        updated.rubricMarks = updated.rubricMarks.map(r => ({ ...r, marks: 0 }));
+      if (value === "Absent") {
+        updated.rubricMarks = updated.rubricMarks.map((r) => ({
+          ...r,
+          marks: 0,
+        }));
       }
-      
+
       return {
         ...prev,
         [studentId]: updated,
@@ -167,12 +174,12 @@ function AddMarks() {
 
     Object.entries(marksData).forEach(([studentId, payload]) => {
       // Check if student is marked absent but has marks entered
-      if (payload.attendance === 'Absent') {
-        const hasMarks = payload.rubricMarks.some(r => r.marks > 0);
+      if (payload.attendance === "Absent") {
+        const hasMarks = payload.rubricMarks.some((r) => r.marks > 0);
         if (hasMarks) {
           const student = students.find((s) => s._id === studentId);
           violations.push(
-            `${student?.name || "Student"} is marked as Absent but has marks entered`
+            `${student?.name || "Student"} is marked as Absent but has marks entered`,
           );
         }
         return; // Skip further validation for absent students
@@ -185,7 +192,7 @@ function AddMarks() {
         if (entered > allowed) {
           const student = students.find((s) => s._id === studentId);
           violations.push(
-            `${student?.name || "Student"} → ${r.name || "Criteria"} (${entered}/${allowed})`
+            `${student?.name || "Student"} → ${r.name || "Criteria"} (${entered}/${allowed})`,
           );
         }
       });
@@ -196,7 +203,7 @@ function AddMarks() {
         "error",
         `Marks exceed allowed values:\n${violations.slice(0, 3).join("\n")}${
           violations.length > 3 ? "…" : ""
-        }`
+        }`,
       );
       return;
     }
@@ -209,7 +216,7 @@ function AddMarks() {
             criteriaId: r.criteriaId,
             marks: r.marks,
           })),
-          attendance: payload.attendance || 'Present',
+          attendance: payload.attendance || "Present",
           subjectId,
           classId,
         };
@@ -217,24 +224,73 @@ function AddMarks() {
         if (payload.exists) {
           await API.put(`/marks/update/${payload.id}/${activityId}`, {
             rubricMarks: data.rubricMarks,
-            attendance: data.attendance
+            attendance: data.attendance,
           });
         } else {
-          const res = await API.post(`/marks/add`, { studentId, activityId, ...data });
+          const res = await API.post(`/marks/add`, {
+            studentId,
+            activityId,
+            ...data,
+          });
           setMarksData((prev) => ({
             ...prev,
-            [studentId]: { ...prev[studentId], exists: true, id: res.data._id || res.data.mark?._id },
+            [studentId]: {
+              ...prev[studentId],
+              exists: true,
+              id: res.data._id || res.data.mark?._id,
+            },
           }));
         }
       }
 
       // Update activity status to "Marks_Updated"
-      await API.put(`/activities/update/${activityId}`, { status: "Marks_Updated" });
+      await API.put(`/activities/update/${activityId}`, {
+        status: "Marks_Updated",
+      });
 
       showToast("success", "All marks saved and activity status updated");
     } catch (err) {
       console.error(err);
       showToast("error", err.response?.data?.error || "Error saving marks");
+    }
+  };
+
+  const handleExcelUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.name.endsWith(".xlsx")) {
+      showToast("error", "Please upload a valid .xlsx file");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      setUploading(true);
+
+      const res = await API.post(
+        `/marks/activity/${activityId}/upload`,
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        },
+      );
+
+      showToast("success", res.data.message || "Marks uploaded successfully");
+
+      // 🔁 Refresh page data after upload
+      window.location.reload();
+    } catch (err) {
+      if (err.response?.data?.errors) {
+        showToast("error", err.response.data.errors.slice(0, 3).join("\n"));
+      } else {
+        showToast("error", err.response?.data?.error || "Upload failed");
+      }
+    } finally {
+      setUploading(false);
+      e.target.value = "";
     }
   };
 
@@ -244,6 +300,34 @@ function AddMarks() {
   return (
     <div className="card">
       <h2>Add Marks for: {activity.name}</h2>
+      <div style={{ marginBottom: 12 }}>
+        <input
+          type="file"
+          accept=".xlsx"
+          id="marksExcelInput"
+          style={{ display: "none" }}
+          onChange={handleExcelUpload}
+        />
+
+        <button
+          className="btn btn-secondary"
+          disabled={uploading}
+          onClick={() => document.getElementById("marksExcelInput").click()}
+        >
+          {uploading ? "Uploading..." : "Upload Marks (Excel)"}
+        </button>
+
+        <a
+          href={`${API.defaults.baseURL}/marks/activity/${activityId}/template`}
+          className="btn btn-outline"
+          style={{ marginLeft: 10 }}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Download Template
+        </a>
+      </div>
+
       {students.length === 0 ? (
         <p>No students enrolled for this activity.</p>
       ) : (
@@ -252,7 +336,9 @@ function AddMarks() {
             <tr>
               <th>Student</th>
               {activity.rubric.map((r) => (
-                <th key={r._id}>{r.name} (out of {r.maxMarks})</th>
+                <th key={r._id}>
+                  {r.name} (out of {r.maxMarks})
+                </th>
               ))}
               <th>Attendance</th>
             </tr>
@@ -264,24 +350,38 @@ function AddMarks() {
 
               return (
                 <tr key={student._id}>
-                  <td>{student.name} ({student.rollNumber})</td>
+                  <td>
+                    {student.name} ({student.rollNumber})
+                  </td>
                   {data.rubricMarks.map((r, idx) => (
                     <td key={r.criteriaId}>
                       <input
                         type="number"
                         value={r.marks}
-                        onChange={(e) => handleRubricChange(student._id, idx, e.target.value)}
+                        onChange={(e) =>
+                          handleRubricChange(student._id, idx, e.target.value)
+                        }
                         min="0"
                         max={r.maxMarks}
-                        disabled={data.attendance === 'Absent'}
-                        style={{ width: 60, opacity: data.attendance === 'Absent' ? 0.5 : 1 }}
+                        disabled={data.attendance === "Absent" || uploading}
+                        style={{
+                          width: 60,
+                          opacity:
+                            data.attendance === "Absent" || uploading ? 0.5 : 1,
+                          cursor:
+                            data.attendance === "Absent" || uploading
+                              ? "not-allowed"
+                              : "auto",
+                        }}
                       />
                     </td>
                   ))}
                   <td>
                     <select
                       value={data.attendance}
-                      onChange={(e) => handleAttendanceChange(student._id, e.target.value)}
+                      onChange={(e) =>
+                        handleAttendanceChange(student._id, e.target.value)
+                      }
                       style={{ width: 100 }}
                     >
                       <option value="Present">Present</option>
@@ -294,7 +394,11 @@ function AddMarks() {
           </tbody>
         </table>
       )}
-      <button className="btn btn-primary" onClick={submitAllMarks} style={{ marginTop: 12 }}>
+      <button
+        className="btn btn-primary"
+        onClick={submitAllMarks}
+        style={{ marginTop: 12 }}
+      >
         Save All Marks
       </button>
       <button

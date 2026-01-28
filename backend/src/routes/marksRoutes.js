@@ -8,8 +8,12 @@ import {
   getAllMarks,
   getMarksByClassSubject,
   downloadActivityMarks,
-  downloadMultipleActivitiesMarks
+  downloadMultipleActivitiesMarks,
+  uploadMarksFromExcel,
+  downloadMarksTemplate
 } from "../controllers/marksController.js";
+
+import multer from "multer";
 
 const router = express.Router();
 
@@ -41,5 +45,23 @@ router.get("/download/:activityId", downloadActivityMarks);
 
 // Download marks for multiple activities combined
 router.post("/download-combined", downloadMultipleActivitiesMarks);
+
+
+
+///////////////////////////////////////////////////////////////////////////
+
+const upload = multer({ storage: multer.memoryStorage() });
+
+router.get(
+  "/activity/:activityId/template",
+  downloadMarksTemplate
+);
+
+router.post(
+  "/activity/:activityId/upload",
+  upload.single("file"),
+  uploadMarksFromExcel
+);
+
 
 export default router;

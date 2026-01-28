@@ -3,6 +3,12 @@ import Activity from "../models/Activity.js";
 import RubricCriteria from "../models/RubricCriteria.js";
 import { createMarksExcel, createCombinedMarksExcel } from "../utils/excelExport.js";
 
+import ExcelJS from "exceljs";
+import Student from "../models/Student.js";
+import TeachingAssignment from "../models/TeachingAssignment.js";
+import multer from "multer";
+
+
 const validateRubricSubmission = async (activityId, rubricMarks = []) => {
   if (!activityId) {
     return { valid: false, message: "activityId is required for rubric validation" };
@@ -452,3 +458,224 @@ export const downloadMultipleActivitiesMarks = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+
+
+////////////////////////////////////////////////////////////////////////////////////
+
+export const downloadMarksTemplate = async (req, res) => {
+  try {
+    const { activityId } = req.params;
+
+    const activity = await Activity.findById(activityId);
+    if (!activity) {
+      return res.status(404).json({ error: "Activity not found" });
+    }
+
+    const rubrics = await RubricCriteria.find({ activityId });
+    if (!rubrics.length) {
+      return res.status(400).json({ error: "No rubric found for activity" });
+    }
+
+    const assignmentId =
+      activity.assignmentId?._id || activity.assignmentId;
+
+    const assignment = await TeachingAssignment.findById(assignmentId);
+    if (!assignment) {
+      return res.status(404).json({ error: "Teaching assignment not found" });
+    }
+
+    const students = await Student.find({ classId: assignment.classId })
+      .sort({ rollNumber: 1 });
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Marks");
+
+    // ---- HEADER ----
+    const headers = [
+      "Roll Number",
+      "Student Name",
+      "Attendance",
+      ...rubrics.map(r => `${r.name} (max ${r.maxMarks})`)
+    ];
+
+    sheet.addRow(headers);
+
+    // ---- STUDENT ROWS ----
+    students.forEach(student => {
+      sheet.addRow([
+        student.rollNumber,
+        student.name,
+        "Present",
+        ...rubrics.map(() => "")
+      ]);
+    });
+
+    sheet.columns.forEach(col => {
+      col.width = 22;
+    });
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=activity_${activityId}_marks.xlsx`
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
+
+  } catch (err) {
+    console.error("Excel download error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/* ----------------------- UPLOAD MARKS FROM EXCEL ----------------------- */
+
+export const uploadMarksFromExcel = async (req, res) => {
+  try {
+    const { activityId } = req.params;
+
+    if (!req.file) {
+      return res.status(400).json({ error: "Excel file is required" });
+    }
+
+    const activity = await Activity.findById(activityId);
+    if (!activity) {
+      return res.status(404).json({ error: "Activity not found" });
+    }
+
+    const assignmentId =
+      activity.assignmentId?._id || activity.assignmentId;
+
+    const assignment = await TeachingAssignment.findById(assignmentId);
+    if (!assignment) {
+      return res.status(404).json({ error: "Teaching assignment not found" });
+    }
+
+    const rubrics = await RubricCriteria.find({ activityId });
+    if (!rubrics.length) {
+      return res.status(400).json({ error: "No rubric found for activity" });
+    }
+
+    // Load Excel
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(req.file.buffer);
+    const sheet = workbook.worksheets[0];
+
+    const errors = [];
+    const validRows = [];
+
+    // Start from row 2 (skip header)
+    for (let rowIndex = 2; rowIndex <= sheet.rowCount; rowIndex++) {
+      const row = sheet.getRow(rowIndex);
+
+      const rollNumber = row.getCell(1).value;
+      const attendance = row.getCell(3).value || "Present";
+
+      if (!rollNumber) continue;
+
+      if (!["Present", "Absent"].includes(attendance)) {
+        errors.push(`Row ${rowIndex}: Invalid attendance`);
+        continue;
+      }
+
+      const student = await Student.findOne({
+        rollNumber,
+        classId: assignment.classId
+      });
+
+      if (!student) {
+        errors.push(`Row ${rowIndex}: Student not found (roll ${rollNumber})`);
+        continue;
+      }
+
+      // Build rubricMarks from Excel
+      const rubricMarks = rubrics.map((r, idx) => ({
+        criteriaId: r._id,
+        marks: Number(row.getCell(4 + idx).value || 0)
+      }));
+
+      // ❌ Absent student rule
+      if (
+        attendance === "Absent" &&
+        rubricMarks.some(r => r.marks > 0)
+      ) {
+        errors.push(`Row ${rowIndex}: Absent student has marks`);
+        continue;
+      }
+
+      // ✅ Reuse your EXISTING validator
+      const validation = await validateRubricSubmission(
+        activityId,
+        rubricMarks
+      );
+
+      if (!validation.valid) {
+        errors.push(`Row ${rowIndex}: ${validation.message}`);
+        continue;
+      }
+
+      validRows.push({
+        studentId: student._id,
+        subjectId: assignment.subjectId,
+        classId: assignment.classId,
+        rubricMarks,
+        attendance,
+        totalRubricMarks: validation.totalRubricMarks
+      });
+    }
+
+    // ❌ If any error, reject whole file
+    if (errors.length) {
+      return res.status(400).json({ errors });
+    }
+
+    // ✅ Insert marks (same logic as addMarks)
+    for (const row of validRows) {
+      let doc = await StudentSubjectMarks.findOne({
+        studentId: row.studentId,
+        subjectId: row.subjectId
+      });
+
+      if (!doc) {
+        doc = new StudentSubjectMarks({
+          studentId: row.studentId,
+          subjectId: row.subjectId,
+          classId: row.classId,
+          activities: []
+        });
+      }
+
+      const exists = doc.activities.find(
+        a => a.activityId.toString() === activityId
+      );
+      if (exists) continue;
+
+      doc.activities.push({
+        activityId,
+        rubricMarks: row.rubricMarks,
+        totalRubricMarks: row.totalRubricMarks,
+        attendance: row.attendance
+      });
+
+      doc.totalMarks = doc.activities.reduce(
+        (sum, a) => sum + a.totalRubricMarks,
+        0
+      );
+
+      await doc.save();
+    }
+
+    res.json({ success: true, message: "Marks uploaded successfully" });
+
+  } catch (err) {
+    console.error("Excel upload error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+

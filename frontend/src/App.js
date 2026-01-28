@@ -24,6 +24,7 @@ import AdminActivityList from "./pages/activities/AdminActivityList";
 function App() {
   const [backendStatus, setBackendStatus] = useState("Checking backend...");
 
+
   const backendURL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
   useEffect(() => {
