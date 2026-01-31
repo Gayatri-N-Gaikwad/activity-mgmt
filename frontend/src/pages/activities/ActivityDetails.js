@@ -65,7 +65,11 @@ function ActivityDetails() {
               <>
                 <tr>
                   <td style={{ fontWeight: "bold", padding: "8px 0" }}>Class:</td>
-                  <td style={{ padding: "8px 0" }}>{activity.assignmentId.classId?.name || 'N/A'}</td>
+                  <td style={{ padding: "8px 0" }}>
+                    {activity.assignmentId?.year && activity.assignmentId?.division
+                      ? `${activity.assignmentId.year}-${activity.assignmentId.division}`
+                      : 'N/A'}
+                  </td>
                 </tr>
                 <tr>
                   <td style={{ fontWeight: "bold", padding: "8px 0" }}>Subject:</td>

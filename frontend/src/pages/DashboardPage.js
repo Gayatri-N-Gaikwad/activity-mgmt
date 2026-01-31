@@ -291,14 +291,16 @@ function DashboardPage() {
       {classes.length === 0 && <p>No classes assigned.</p>}
 
       {classes.map((cls) => (
-        <div key={cls._id} style={{ marginBottom: 40 }}>
-          <h3>{cls.name}</h3>
+        <div key={cls._id || `${cls.year}-${cls.division}`} style={{ marginBottom: 40 }}>
+          <h3>{cls.year}-{cls.division}</h3>
 
           {(subjects[cls._id] || []).length === 0 && <p>No subjects assigned.</p>}
 
           {(subjects[cls._id] || []).map((sub) => {
             // Convert IDs to strings for consistent comparison
-            const classStudents = students.filter((s) => String(s.classId) === String(cls._id));
+            const classStudents = students.filter((s) =>
+              (s.year === cls.year && s.division === cls.division) || String(s.classId) === String(cls._id)
+            );
             if (!classStudents.length) return null;
 
             const subjectMaxMarks = activityMaxMarks[String(sub._id)] || 0;
@@ -323,7 +325,7 @@ function DashboardPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                   <h4>{sub.name}</h4>
                   <button
-                    onClick={() => downloadSubjectReport(cls._id, sub._id, sub.name, cls.name)}
+                    onClick={() => downloadSubjectReport(cls._id, sub._id, sub.name, `${cls.year}-${cls.division}`)}
                     disabled={downloading}
                     style={{
                       padding: "8px 12px",

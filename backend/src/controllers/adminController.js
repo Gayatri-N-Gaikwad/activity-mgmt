@@ -18,7 +18,6 @@ export const getAllTeachingAssignments = async (req, res) => {
     const assignments = await TeachingAssignment.find()
       .populate("facultyId", "name email")   // optional: populate faculty info
       .populate("subjectId", "name code")   // optional: populate subject info
-      .populate("classId", "name year");    // optional: populate class info
 
     return res.status(200).json({
       success: true,
@@ -39,25 +38,24 @@ export const getAllTeachingAssignments = async (req, res) => {
 // Controller to create a new class
 export const createClass = async (req, res) => {
   try {
-    const { name } = req.body;
+    const { year, division } = req.body;
 
-    if (!name) {
-      return res.status(400).json({
-        success: false,
-        message: "Class name is required"
-      });
-    }
+if (!year || !division) {
+  return res.status(400).json({
+    success: false,
+    message: "Year and division are required"
+  });
+}
 
-    // Check if class already exists
-    const existingClass = await Class.findOne({ name });
-    if (existingClass) {
-      return res.status(409).json({
-        success: false,
-        message: "Class already exists"
-      });
-    }
+const existingClass = await Class.findOne({ year, division });
+if (existingClass) {
+  return res.status(409).json({
+    success: false,
+    message: "Class already exists"
+  });
+}
 
-    const newClass = await Class.create({ name });
+const newClass = await Class.create({ year, division });
 
     return res.status(201).json({
       success: true,
@@ -72,8 +70,6 @@ export const createClass = async (req, res) => {
     });
   }
 };
-
-
 
 
 // Controller to create a new subject
@@ -117,13 +113,23 @@ export const createSubject = async (req, res) => {
 // Assign subject and class to a faculty
 export const assignSubjectAndClassToFaculty = async (req, res) => {
   try {
-    const { facultyId, subjectId, classId } = req.body;
+    let { facultyId, subjectId, year, division, classId } = req.body;
+
+    // Support classId: look up Class to get year and division
+    if (classId && (!year || !division)) {
+      const classObj = await Class.findById(classId);
+      if (!classObj) {
+        return res.status(400).json({ success: false, message: "Class not found" });
+      }
+      year = classObj.year;
+      division = classObj.division;
+    }
 
     // 1. Validate input 
-    if (!facultyId || !subjectId || !classId) {
+    if (!facultyId || !subjectId || !year || !division) {
       return res.status(400).json({
         success: false,
-        message: "facultyId, subjectId, and classId are required",
+        message: "facultyId, subjectId, and class (year+division or classId) are required",
       });
     }
 
@@ -164,7 +170,7 @@ export const assignSubjectAndClassToFaculty = async (req, res) => {
     }
 
     // 4. Check class exists 
-    const classObj = await Class.findById(classId);
+    const classObj = await Class.findOne({ year, division });
     if (!classObj) {
       return res.status(404).json({
         success: false,
@@ -177,7 +183,8 @@ export const assignSubjectAndClassToFaculty = async (req, res) => {
     const sameFacultyAssignment = await TeachingAssignment.findOne({
       facultyId,
       subjectId,
-      classId,
+      year,
+      division,
       academicYear,
     });
 
@@ -191,7 +198,8 @@ export const assignSubjectAndClassToFaculty = async (req, res) => {
     // b) Another faculty already teaching this subject & class
     const someoneElseAssignment = await TeachingAssignment.findOne({
       subjectId,
-      classId,
+      year,
+      division,
       academicYear,
     });
 
@@ -206,7 +214,8 @@ export const assignSubjectAndClassToFaculty = async (req, res) => {
     const assignment = await TeachingAssignment.create({
       facultyId,
       subjectId,
-      classId,
+      year  ,
+      division,
       academicYear
     });
 
@@ -229,10 +238,23 @@ export const assignSubjectAndClassToFaculty = async (req, res) => {
 /* ---------------- UPLOAD STUDENTS FROM EXCEL ---------------- */
 export const uploadStudentsFromExcel = async (req, res) => {
   try {
-    const { classId } = req.body;
+    const { year, division, classId } = req.body;
 
-    if (!classId) {
-      return res.status(400).json({ error: "classId is required" });
+    let targetYear = year;
+    let targetDivision = division;
+
+    // Support classId: look up Class to get year and division
+    if (classId && (!targetYear || !targetDivision)) {
+      const classObj = await Class.findById(classId);
+      if (!classObj) {
+        return res.status(400).json({ error: "Class not found" });
+      }
+      targetYear = classObj.year;
+      targetDivision = classObj.division;
+    }
+
+    if (!targetYear || !targetDivision) {
+      return res.status(400).json({ error: "year and division (or classId) are required" });
     }
 
     if (!req.file) {
@@ -260,7 +282,8 @@ export const uploadStudentsFromExcel = async (req, res) => {
       return {
         rollNumber: String(row.rollNumber).trim(),
         name: String(row.name).trim(),
-        classId
+        year: targetYear,
+        division: targetDivision
       };
     });
 
@@ -291,7 +314,7 @@ export const uploadStudentsFromExcel = async (req, res) => {
 // controllers/adminController.js
 export const getAllClasses = async (req, res) => {
   try {
-    const classes = await Class.find().select("_id name");
+    const classes = await Class.find().select("_id year division").sort({ year: 1, division: 1 });
     res.json({ success: true, data: classes });
   } catch (err) {
     res.status(500).json({ success: false, message: "Failed to fetch classes" });
@@ -394,22 +417,32 @@ export const setAcademicYear = async (req, res) => {
 
 export const getAdminActivities = async (req, res) => {
   try {
-    console.log("ADMIN ACTIVITIES QUERY:", req.query);
+    const { facultyId, subjectId, year, division, classId } = req.query;
 
-    const { facultyId, subjectId, classId } = req.query;
+    let targetYear = year;
+    let targetDivision = division;
 
-    // 1️⃣ Validate query params
-    if (!facultyId || !subjectId || !classId) {
+    // Support classId: look up Class to get year and division
+    if (classId && (!targetYear || !targetDivision)) {
+      const classObj = await Class.findById(classId);
+      if (!classObj) {
+        return res.status(400).json({ message: "Class not found" });
+      }
+      targetYear = classObj.year;
+      targetDivision = classObj.division;
+    }
+
+    if (!facultyId || !subjectId || !targetYear || !targetDivision) {
       return res.status(400).json({
-        message: "facultyId, subjectId, and classId are required",
+        message: "facultyId, subjectId, and class (year+division or classId) are required",
       });
     }
 
-    // 2️⃣ Find teaching assignment
     const assignment = await TeachingAssignment.findOne({
       facultyId,
       subjectId,
-      classId,
+      year: targetYear,
+      division: targetDivision,
     });
 
     console.log("FOUND ASSIGNMENT:", assignment);

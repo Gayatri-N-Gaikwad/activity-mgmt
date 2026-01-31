@@ -1,3 +1,4 @@
+import Class from "../models/Class.js";
 import StudentSubjectMarks from "../models/StudentSubjectMarks.js";
 import Activity from "../models/Activity.js";
 import RubricCriteria from "../models/RubricCriteria.js";
@@ -104,21 +105,23 @@ export const addMarks = async (req, res) => {
     const totalRubricMarks = attendance === 'Present' ? 
       (await validateRubricSubmission(activityId, rubricMarks)).totalRubricMarks : 0;
 
+    // Get year, division from assignment (via activity)
+    const assignmentId = activity.assignmentId?._id || activity.assignmentId;
+    const assignment = await TeachingAssignment.findById(assignmentId);
+    if (!assignment) return res.status(404).json({ error: "Assignment not found" });
+    const { year, division } = assignment;
+
     // Fetch or create student-subject marks
-    let doc = await StudentSubjectMarks.findOne({ studentId, subjectId });
+    let doc = await StudentSubjectMarks.findOne({ studentId, subjectId, year, division });
 
     if (!doc) {
       doc = new StudentSubjectMarks({
         studentId,
         subjectId,
-        classId,
+        year,
+        division,
         activities: []
       });
-    } else {
-      // Update classId if it's missing or if a new classId is provided
-      if (classId && (!doc.classId || doc.classId.toString() !== classId.toString())) {
-        doc.classId = classId;
-      }
     }
 
     // Check if activity already present
@@ -270,28 +273,20 @@ export const getMarksByClassSubject = async (req, res) => {
   try {
     const { classId, subjectId } = req.params;
 
-    // Find marks by subjectId, and then filter by classId if it exists in the document
-    // This handles cases where classId might be null in older records
-    let docs = await StudentSubjectMarks.find({ subjectId })
-      .populate("studentId", "name rollNumber classId")
+    const classDoc = await Class.findById(classId);
+    if (!classDoc) return res.json({ success: true, marks: [] });
+
+    const docs = await StudentSubjectMarks.find({
+      subjectId,
+      year: classDoc.year,
+      division: classDoc.division
+    })
+      .populate("studentId", "name rollNumber year division")
       .populate({
         path: "activities.activityId",
         select: "_id name scheduleDate status"
       })
       .lean();
-
-    // Filter by classId: either the document has the matching classId, or if classId is null/undefined,
-    // check if the student's classId matches (for backward compatibility)
-    docs = docs.filter((doc) => {
-      if (doc.classId) {
-        return doc.classId.toString() === classId;
-      }
-      // If classId is not set in the document, check the student's classId
-      if (doc.studentId && doc.studentId.classId) {
-        return doc.studentId.classId.toString() === classId;
-      }
-      return false;
-    });
 
     // Sort activities by scheduleDate for each student's marks
     docs.forEach((doc) => {
@@ -320,8 +315,7 @@ export const getAllMarks = async (req, res) => {
   try {
     const marks = await StudentSubjectMarks.find()
       .populate("studentId")
-      .populate("subjectId")
-      .populate("classId");
+      .populate("subjectId");
 
     res.json({ success: true, marks });
   } catch (err) {
@@ -485,7 +479,7 @@ export const downloadMarksTemplate = async (req, res) => {
       return res.status(404).json({ error: "Teaching assignment not found" });
     }
 
-    const students = await Student.find({ classId: assignment.classId })
+    const students = await Student.find({ year: assignment.year, division: assignment.division })
       .sort({ rollNumber: 1 });
 
     const workbook = new ExcelJS.Workbook();
@@ -585,7 +579,8 @@ export const uploadMarksFromExcel = async (req, res) => {
 
       const student = await Student.findOne({
         rollNumber,
-        classId: assignment.classId
+        year: assignment.year,
+        division: assignment.division
       });
 
       if (!student) {
@@ -622,7 +617,8 @@ export const uploadMarksFromExcel = async (req, res) => {
       validRows.push({
         studentId: student._id,
         subjectId: assignment.subjectId,
-        classId: assignment.classId,
+        year: assignment.year,
+        division: assignment.division,
         rubricMarks,
         attendance,
         totalRubricMarks: validation.totalRubricMarks
@@ -638,14 +634,17 @@ export const uploadMarksFromExcel = async (req, res) => {
     for (const row of validRows) {
       let doc = await StudentSubjectMarks.findOne({
         studentId: row.studentId,
-        subjectId: row.subjectId
+        subjectId: row.subjectId,
+        year: row.year,
+        division: row.division
       });
 
       if (!doc) {
         doc = new StudentSubjectMarks({
           studentId: row.studentId,
           subjectId: row.subjectId,
-          classId: row.classId,
+          year: row.year,
+          division: row.division,
           activities: []
         });
       }

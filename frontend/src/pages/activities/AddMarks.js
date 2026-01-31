@@ -58,37 +58,36 @@ function AddMarks() {
           return;
         }
 
-        // Extract IDs - handle both populated objects and plain IDs
+        // Extract IDs - assignment has year, division (no classId)
         const subjId = assignment.subjectId?._id || assignment.subjectId;
-        const clsId = assignment.classId?._id || assignment.classId;
+        const year = assignment.year;
+        const division = assignment.division;
 
         console.log("Assignment data:", assignment);
-        console.log("Extracted classId:", clsId);
-        console.log("Extracted subjectId:", subjId);
 
-        if (!subjId || !clsId) {
-          console.error("Missing IDs - Subject:", subjId, "Class:", clsId);
-          showToast("error", "Subject ID or Class ID not found");
+        if (!subjId || !year || !division) {
+          console.error("Missing IDs - Subject:", subjId, "Year:", year, "Division:", division);
+          showToast("error", "Subject or class (year/division) not found");
           setLoading(false);
           return;
         }
 
-        // Convert to string to ensure consistent format
         const subjIdStr = String(subjId);
-        const clsIdStr = String(clsId);
-
         setSubjectId(subjIdStr);
+
+        // Get classId for marks API (lookup by year-division)
+        const resClass = await API.get(`/classes/by-year-division/${year}/${division}`);
+        const clsIdStr = resClass.data?.class?._id ? String(resClass.data.class._id) : null;
         setClassId(clsIdStr);
 
-        // Fetch students for this class
-        console.log("Fetching students for classId:", clsIdStr);
-        const resStudents = await API.get(`/students/by-class/${clsIdStr}`);
+        // Fetch students by year and division
+        const resStudents = await API.get(`/students/by-year-division/${year}/${division}`);
         const studentsList = resStudents.data?.students || [];
 
         console.log("Fetched students:", studentsList.length, studentsList);
 
         if (studentsList.length === 0) {
-          console.warn("No students found for classId:", clsIdStr);
+          console.warn("No students found for", year, division);
           showToast("warning", "No students found for this class");
         }
 

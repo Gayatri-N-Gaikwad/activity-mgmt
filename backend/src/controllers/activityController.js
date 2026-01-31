@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import path from "path";
 import Activity from "../models/Activity.js";
+import Class from "../models/Class.js";
 import * as RubricCriteriaMod from "../models/RubricCriteria.js";
 import * as StudentActivityMarksMod from "../models/StudentActivityMarks.js";
 import { scheduleActivityReminder } from "../utils/scheduler.js";
@@ -164,7 +165,6 @@ export const getActivityById = async (req, res) => {
         populate: [
           { path: "facultyId", select: "name email" },
           { path: "subjectId", select: "name code" },
-          { path: "classId", select: "name" },
         ],
       });
     if (!activity) return res.status(404).json({ error: "Activity not found" });
@@ -535,8 +535,15 @@ export const getActivitiesByClassSubject = async (req, res) => {
   try {
     const { classId, subjectId } = req.params;
 
+    const classDoc = await Class.findById(classId);
+    if (!classDoc) return res.status(404).json({ error: "Class not found" });
+
     // Find the assignment for this class and subject
-    const assignment = await TeachingAssignment.findOne({ classId, subjectId });
+    const assignment = await TeachingAssignment.findOne({
+      year: classDoc.year,
+      division: classDoc.division,
+      subjectId
+    });
     if (!assignment)
       return res.status(404).json({ error: "Assignment not found" });
 
@@ -555,28 +562,15 @@ export const getStudentsByClass = async (req, res) => {
   try {
     const { classId } = req.params;
 
-    console.log(
-      "Searching students in classId =",
-      classId,
-      "Type:",
-      typeof classId
-    );
-
-    // Mongoose automatically handles ObjectId string conversion, but let's be explicit
-    let queryClassId = classId;
-
-    // Convert to ObjectId if it's a valid ObjectId string
-    if (mongoose.Types.ObjectId.isValid(classId)) {
-      queryClassId = new mongoose.Types.ObjectId(classId);
+    const classDoc = await Class.findById(classId);
+    if (!classDoc) {
+      return res.json({ students: [] });
     }
 
-    const students = await Student.find({ classId: queryClassId })
-      .select("name rollNumber classId _id")
+    const students = await Student.find({ year: classDoc.year, division: classDoc.division })
+      .select("name rollNumber year division _id")
       .lean();
 
-    console.log(`Found ${students.length} students for classId ${classId}`);
-
-    // Return empty array instead of error if no students found
     res.json({ students: students || [] });
   } catch (err) {
     console.error("Error fetching students by class:", err);

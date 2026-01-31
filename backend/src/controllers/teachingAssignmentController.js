@@ -1,18 +1,25 @@
+import Class from "../models/Class.js";
 import TeachingAssignment from "../models/TeachingAssignment.js";
 import Activity from "../models/Activity.js";
 import Student from "../models/Student.js";
 import RubricCriteria from "../models/RubricCriteria.js";
 import StudentActivityMarks from "../models/StudentActivityMarks.js";
 
+const resolveClassToYearDivision = async (classId) => {
+  const classDoc = await Class.findById(classId);
+  return classDoc ? { year: classDoc.year, division: classDoc.division } : null;
+};
+
 /*  GET ALL ASSIGNMENTS FOR CLASS */
 export const getAssignmentsByClass = async (req, res) => {
   try {
     const { classId } = req.params;
+    const yd = await resolveClassToYearDivision(classId);
+    if (!yd) return res.status(404).json({ error: "Class not found" });
 
-    const assignment = await TeachingAssignment.find({ classId })
+    const assignment = await TeachingAssignment.find({ year: yd.year, division: yd.division })
       .populate("facultyId")
-      .populate("subjectId")
-      .populate("classId");
+      .populate("subjectId");
 
     if (!assignment || assignment.length === 0) {
       return res.status(404).json({ error: "No assignment found for this class" });
@@ -30,13 +37,18 @@ export const getStudentsByActivityClass = async (req, res) => {
   try {
     const { activityId } = req.params;
 
-    const activity = await Activity.findById(activityId);
+    const activity = await Activity.findById(activityId).populate("assignmentId");
     if (!activity) {
       return res.status(404).json({ error: "Activity not found" });
     }
 
-    const students = await Student.find({ classId: activity.classId })
-      .select("name rollNumber classId");
+    const assignment = activity.assignmentId;
+    if (!assignment || !assignment.year || !assignment.division) {
+      return res.status(404).json({ error: "Assignment missing year/division" });
+    }
+
+    const students = await Student.find({ year: assignment.year, division: assignment.division })
+      .select("name rollNumber year division");
 
     res.json({ students });
   } catch (err) {
@@ -50,8 +62,7 @@ export const getTeachingAssignmentById = async (req, res) => {
   try {
     const assignment = await TeachingAssignment.findById(req.params.id)
       .populate("facultyId")
-      .populate("subjectId")
-      .populate("classId");
+      .populate("subjectId");
 
     if (!assignment) {
       return res.status(404).json({ error: "Teaching assignment not found" });
@@ -71,8 +82,7 @@ export const getAssignmentsByFaculty = async (req, res) => {
 
     const assignments = await TeachingAssignment.find({ facultyId })
       .populate("facultyId")
-      .populate("subjectId")
-      .populate("classId");
+      .populate("subjectId");
 
     if (!assignments || assignments.length === 0) {
       return res.status(404).json({ error: "No teaching assignments found" });
@@ -94,10 +104,14 @@ export const createTeachingAssignment = async (req, res) => {
       return res.status(400).json({ error: "All fields are required" });
     }
 
+    const yd = await resolveClassToYearDivision(classId);
+    if (!yd) return res.status(400).json({ error: "Class not found" });
+
     const assignment = await TeachingAssignment.create({
       facultyId,
       subjectId,
-      classId
+      year: yd.year,
+      division: yd.division
     });
 
     res.status(201).json({ message: "Teaching assignment created", assignment });
@@ -112,8 +126,11 @@ export const getMarksByClassSubject = async (req, res) => {
   try {
     const { classId, subjectId } = req.params;
 
+    const yd = await resolveClassToYearDivision(classId);
+    if (!yd) return res.json({});
+
     // 1) Find assignment
-    const assignment = await TeachingAssignment.findOne({ classId, subjectId });
+    const assignment = await TeachingAssignment.findOne({ year: yd.year, division: yd.division, subjectId });
     if (!assignment) return res.json({});
 
     // 2) Find all activities under this assignment, sorted by scheduleDate
@@ -166,8 +183,12 @@ export const getAssignedSubjects = async (req, res) => {
   try {
     const { classId, facultyId } = req.params;
 
+    const yd = await resolveClassToYearDivision(classId);
+    if (!yd) return res.status(404).json({ error: "Class not found" });
+
     const subjects = await TeachingAssignment.find({
-      classId,
+      year: yd.year,
+      division: yd.division,
       facultyId
     }).populate("subjectId");
 
@@ -184,8 +205,12 @@ export const getSubjectsByFacultyAndClass = async (req, res) => {
   try {
     const { classId, facultyId } = req.params;
 
+    const yd = await resolveClassToYearDivision(classId);
+    if (!yd) return res.status(404).json({ error: "Class not found" });
+
     const assignments = await TeachingAssignment.find({
-      classId,
+      year: yd.year,
+      division: yd.division,
       facultyId,
     }).populate("subjectId");
 

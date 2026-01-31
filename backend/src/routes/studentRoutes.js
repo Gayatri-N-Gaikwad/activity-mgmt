@@ -1,5 +1,5 @@
 import express from "express";
-import mongoose from "mongoose";
+import Class from "../models/Class.js";
 import Student from "../models/Student.js";
 
 const router = express.Router();
@@ -9,27 +9,33 @@ router.get("/by-class/:classId", async (req, res) => {
   try {
     const { classId } = req.params;
 
-    console.log("Searching students in classId =", classId, "Type:", typeof classId);
-
-    // Mongoose automatically handles ObjectId string conversion, but let's be explicit
-    let queryClassId = classId;
-    
-    // Convert to ObjectId if it's a valid ObjectId string
-    if (mongoose.Types.ObjectId.isValid(classId)) {
-      queryClassId = new mongoose.Types.ObjectId(classId);
+    const classDoc = await Class.findById(classId);
+    if (!classDoc) {
+      return res.json({ students: [] });
     }
 
-    const students = await Student.find({ classId: queryClassId })  
-      .select("name rollNumber classId _id")
+    const students = await Student.find({ year: classDoc.year, division: classDoc.division })
+      .select("name rollNumber year division _id")
       .lean();
 
-    console.log(`Found ${students.length} students for classId ${classId}`);
-
-    // Return empty array instead of error if no students found
     res.json({ students: students || [] });
   } catch (err) {
     console.error("Error in /students/by-class/:classId:", err);
     res.status(500).json({ error: "Server error fetching students", details: err.message });
+  }
+});
+
+// GET students by year and division
+router.get("/by-year-division/:year/:division", async (req, res) => {
+  try {
+    const { year, division } = req.params;
+    const students = await Student.find({ year, division })
+      .select("name rollNumber year division _id")
+      .lean();
+    res.json({ students: students || [] });
+  } catch (err) {
+    console.error("Error in /students/by-year-division:", err);
+    res.status(500).json({ error: "Server error fetching students" });
   }
 });
 

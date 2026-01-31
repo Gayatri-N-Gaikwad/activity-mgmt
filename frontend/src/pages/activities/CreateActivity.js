@@ -145,7 +145,7 @@ function CreateActivity() {
             <option value="">-- Select --</option>
             {assignments.map((a) => (
               <option key={a._id} value={a._id}>
-                {a.subjectId?.name} — {a.classId?.name}
+                {a.subjectId?.name} — {a.year}-{a.division}
               </option>
             ))}
           </select>
