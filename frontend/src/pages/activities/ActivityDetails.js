@@ -1,13 +1,18 @@
 import React, { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import API from "../../services/api";
 import showToast from "../../utils/toast";
 
 function ActivityDetails() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [activity, setActivity] = useState(null);
   const [rubric, setRubric] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Check if coming from admin activities
+  const fromAdmin = location.state?.fromAdmin;
 
   useEffect(() => {
     const loadActivity = async () => {
@@ -38,10 +43,13 @@ function ActivityDetails() {
     <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <h2>{activity.name}</h2>
-        <Link to="/activities" className="btn btn-secondary">
+        <button 
+          onClick={() => navigate(-1)} 
+          className="btn btn-secondary"
+        >
           <i className="fa fa-arrow-left" style={{ marginRight: 8 }}></i>
-          Back to Activities
-        </Link>
+          {fromAdmin ? 'Back to Activities' : 'Back to Activities'}
+        </button>
       </div>
 
       <div style={{ marginBottom: 24 }}>

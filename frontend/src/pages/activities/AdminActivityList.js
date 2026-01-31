@@ -7,18 +7,21 @@ function AdminActivityList() {
   const [searchParams] = useSearchParams();
   const facultyId = searchParams.get("facultyId");
   const subjectId = searchParams.get("subjectId");
-  const classId = searchParams.get("classId");
+  const year = searchParams.get("year");
+  const division = searchParams.get("division");
+  const facultyName = searchParams.get("facultyName");
+  const subjectName = searchParams.get("subjectName");
 
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadActivities = async () => {
-      if (!facultyId || !subjectId || !classId) return;
+      if (!facultyId || !subjectId) return;
 
       try {
         const res = await API.get("/admin/activities", {
-          params: { facultyId, subjectId, classId },
+          params: { facultyId, subjectId, year, division },
         });
         console.log("Activities loaded:", res.data.activities);
         setActivities(res.data.activities || []);
@@ -31,13 +34,21 @@ function AdminActivityList() {
     };
 
     loadActivities();
-  }, [facultyId, subjectId, classId]);
+  }, [facultyId, subjectId, year, division]);
 
   if (loading) return <div className="card">Loading activities...</div>;
 
   return (
     <div className="card">
       <h2>Activities ({activities.length})</h2>
+      
+      {facultyName && (
+        <div style={{ marginBottom: "20px" }}>
+          <p><strong>Faculty:</strong> {decodeURIComponent(facultyName)}</p>
+          <p><strong>Subject:</strong> {decodeURIComponent(subjectName || '')}</p>
+          <p><strong>Class:</strong> {year}-{division}</p>
+        </div>
+      )}
 
       {activities.length === 0 ? (
         <p>No activities found.</p>
@@ -62,7 +73,11 @@ function AdminActivityList() {
                     : "Not Scheduled"}
                 </td>
                 <td>
-                  <Link to={`/activity/details/${a._id}`} className="btn btn-info">
+                  <Link 
+                    to={`/activity/details/${a._id}`} 
+                    state={{ fromAdmin: true }}
+                    className="btn btn-info"
+                  >
                     View Details
                   </Link>
                 </td>

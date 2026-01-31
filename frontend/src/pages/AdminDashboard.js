@@ -18,7 +18,6 @@ import { setAcademicYear as setAcademicYearApi, getActiveAcademicYear } from "..
 function AdminDashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("assignments");
-  const [assignments, setAssignments] = useState([]);
 
   const [className, setClassName] = useState("");
   const [subject, setSubject] = useState({ name: "", code: "" });
@@ -42,6 +41,10 @@ function AdminDashboard() {
   const [semesterStartDate, setSemesterStartDate] = useState("");
   const [semesterEndDate, setSemesterEndDate] = useState("");
 
+  // Subject Allocation states
+  const [selectedYear, setSelectedYear] = useState(null); // 'SY', 'TE', or 'BE'
+  const [allocationData, setAllocationData] = useState([]); // All subjects with their faculty assignments
+
   // Check if user is admin
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
@@ -51,14 +54,79 @@ function AdminDashboard() {
     }
   }, [navigate]);
 
-  // Fetch assignments
+  // Fetch allocation data when year is selected
   useEffect(() => {
-    if (activeTab === "assignments") {
-      getAllTeachingAssignments()
-        .then(setAssignments)
-        .catch(() => showToast("error", "Failed to load teaching assignments"));
+    if (selectedYear) {
+      fetchAllocationData(selectedYear);
     }
-  }, [activeTab]);
+  }, [selectedYear]);
+
+  const fetchAllocationData = async (year) => {
+    try {
+      const assignmentsRes = await getAllTeachingAssignments();
+      const allAssignments = assignmentsRes.data || assignmentsRes;
+
+      // Filter assignments for the selected year
+      const yearAssignments = allAssignments.filter(a => a.year === year);
+
+      // Group by subject and create table data
+      const subjectMap = new Map();
+
+      // Only add subjects that have assignments for this year
+      yearAssignments.forEach(assignment => {
+        const subjectId = assignment.subjectId?._id || assignment.subjectId;
+        const subjectName = assignment.subjectId?.name || 'Unknown';
+        const subjectCode = assignment.subjectId?.code || '';
+        const division = assignment.division;
+        const facultyName = assignment.facultyId?.name || 'Not Assigned';
+        const facultyId = assignment.facultyId?._id;
+
+        console.log('Assignment:', { subjectName, division, facultyName, year }); // Debug log
+
+        // Initialize subject if not exists
+        if (!subjectMap.has(subjectId)) {
+          subjectMap.set(subjectId, {
+            subjectId: subjectId,
+            subjectName: subjectName,
+            subjectCode: subjectCode,
+            div9: null,
+            div10: null,
+            div11: null,
+            div9Info: null,
+            div10Info: null,
+            div11Info: null
+          });
+        }
+
+        // Set faculty for the division - handle different division formats
+        const subjectData = subjectMap.get(subjectId);
+        
+        // Match divisions: "09", "9", "Div 9", etc.
+        if (division === '09' || division === '9' || division.toLowerCase().includes('9')) {
+          subjectData.div9 = facultyName;
+          subjectData.div9Info = { facultyId, division };
+        } else if (division === '10' || division.toLowerCase().includes('10')) {
+          subjectData.div10 = facultyName;
+          subjectData.div10Info = { facultyId, division };
+        } else if (division === '11' || division.toLowerCase().includes('11')) {
+          subjectData.div11 = facultyName;
+          subjectData.div11Info = { facultyId, division };
+        }
+      });
+
+      setAllocationData(Array.from(subjectMap.values()));
+    } catch (err) {
+      showToast("error", "Failed to load allocation data");
+      console.error(err);
+    }
+  };
+
+  const handleFacultyClick = (facultyName, subjectId, subjectName, facultyId, division, year) => {
+    if (!facultyName || facultyName === '-') return;
+
+    // Navigate to admin activities page with query params
+    navigate(`/admin/activities?facultyId=${facultyId}&subjectId=${subjectId}&year=${year}&division=${division}&facultyName=${encodeURIComponent(facultyName)}&subjectName=${encodeURIComponent(subjectName)}`);
+  };
 
   /* =======================
      FETCH DROPDOWN DATA
@@ -219,7 +287,11 @@ function AdminDashboard() {
 
       {/* Navigation */}
       <div style={{ marginBottom: "20px" }}>
-        <button onClick={() => setActiveTab("assignments")}>
+        <button onClick={() => {
+          setActiveTab("assignments");
+          setSelectedYear(null);
+          setAllocationData([]);
+        }}>
           Subject Allocations
         </button>{" "}
         <button onClick={() => setActiveTab("addClass")}>Add Class</button>{" "}
@@ -238,34 +310,126 @@ function AdminDashboard() {
       {/* Content rendering (same as before) */}
       {activeTab === "assignments" && (
         <>
-          <h2>Teaching Assignments</h2>
-          <table border="1" cellPadding="8">
-            <thead>
-              <tr>
-                <th>Faculty</th>
-                <th>Subject</th>
-                <th>Class</th>
-              </tr>
-            </thead>
-            <tbody>
-              {assignments.map((a) => (
-                <tr
-                  key={a._id}
-                  style={{ cursor: "pointer" }}
-                  onClick={() =>
-                    navigate(
-                      `/admin/activities?facultyId=${a.facultyId._id}&subjectId=${a.subjectId._id}&classId=${a.classId._id}`
-                    )
-                  }
+          {!selectedYear ? (
+            <>
+              <h2>Subject Allocations</h2>
+              <div style={{ marginTop: "20px" }}>
+                <button 
+                  onClick={() => setSelectedYear('SY')}
                 >
-                  <td>{a.facultyId?.name}</td>
-                  <td>{a.subjectId?.name}</td>
-                  <td>{a.classId?.name}</td>
-                </tr>
-              ))}
-            </tbody>
-
-          </table>
+                  Second Year
+                </button>{" "}
+                <button 
+                  onClick={() => setSelectedYear('TE')}
+                >
+                  Third Year
+                </button>{" "}
+                <button 
+                  onClick={() => setSelectedYear('BE')}
+                >
+                  Fourth Year
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <button 
+                onClick={() => {
+                  setSelectedYear(null);
+                  setAllocationData([]);
+                }}
+              >
+                ← Back
+              </button>
+              <h2>
+                Subject Allocations - {
+                  selectedYear === 'SY' ? 'Second Year' : 
+                  selectedYear === 'TE' ? 'Third Year' : 
+                  'Fourth Year'
+                }
+              </h2>
+              <table border="1" cellPadding="8" style={{ marginTop: "20px", width: "100%" }}>
+                <thead>
+                  <tr>
+                    <th>Subject</th>
+                    <th>Div 9</th>
+                    <th>Div 10</th>
+                    <th>Div 11</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allocationData.length > 0 ? (
+                    allocationData.map((item) => (
+                      <tr key={item.subjectId}>
+                        <td>
+                          <strong>{item.subjectName}</strong>
+                          <br />
+                          <small style={{ color: "gray" }}>{item.subjectCode}</small>
+                        </td>
+                        <td 
+                          style={{ 
+                            cursor: item.div9 && item.div9 !== '-' ? 'pointer' : 'default',
+                            color: item.div9 && item.div9 !== '-' ? 'blue' : 'inherit',
+                            textDecoration: item.div9 && item.div9 !== '-' ? 'underline' : 'none'
+                          }}
+                          onClick={() => item.div9 && item.div9 !== '-' && item.div9Info && handleFacultyClick(
+                            item.div9, 
+                            item.subjectId, 
+                            item.subjectName, 
+                            item.div9Info.facultyId,
+                            item.div9Info.division, 
+                            selectedYear
+                          )}
+                        >
+                          {item.div9 || '-'}
+                        </td>
+                        <td 
+                          style={{ 
+                            cursor: item.div10 && item.div10 !== '-' ? 'pointer' : 'default',
+                            color: item.div10 && item.div10 !== '-' ? 'blue' : 'inherit',
+                            textDecoration: item.div10 && item.div10 !== '-' ? 'underline' : 'none'
+                          }}
+                          onClick={() => item.div10 && item.div10 !== '-' && item.div10Info && handleFacultyClick(
+                            item.div10, 
+                            item.subjectId, 
+                            item.subjectName, 
+                            item.div10Info.facultyId,
+                            item.div10Info.division, 
+                            selectedYear
+                          )}
+                        >
+                          {item.div10 || '-'}
+                        </td>
+                        <td 
+                          style={{ 
+                            cursor: item.div11 && item.div11 !== '-' ? 'pointer' : 'default',
+                            color: item.div11 && item.div11 !== '-' ? 'blue' : 'inherit',
+                            textDecoration: item.div11 && item.div11 !== '-' ? 'underline' : 'none'
+                          }}
+                          onClick={() => item.div11 && item.div11 !== '-' && item.div11Info && handleFacultyClick(
+                            item.div11, 
+                            item.subjectId, 
+                            item.subjectName, 
+                            item.div11Info.facultyId,
+                            item.div11Info.division, 
+                            selectedYear
+                          )}
+                        >
+                          {item.div11 || '-'}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="4" style={{ textAlign: "center" }}>
+                        No subjects found for this year
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </>
+          )}
         </>
       )}
 
