@@ -50,7 +50,7 @@ function Header() {
 
 
             {/* Activities ONLY for non-admin roles */}
-            {user && user.role !== "admin" && (
+            {user && user.role !== "admin" && user.role !== "HOD" && (
               <Link className="nav-link" to="/activities">
                 <i className="fa fa-list" style={{ marginRight: 6 }}></i>
                 Activities
