@@ -19,6 +19,7 @@ import subjectRoutes from "./routes/subjectRoutes.js";
 import rubricRoutes from "./routes/rubricRoutes.js"
 import studentSubjectMarksRoutes from "./routes/studentSubjectMarksRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import hodRoutes from "./routes/hodRoutes.js";
 
 dotenv.config();
 console.log("✅ ENV file loaded");
@@ -112,6 +113,7 @@ app.use("/api/subjects", subjectRoutes);
 app.use("/api/rubric", rubricRoutes);
 app.use("/api/student-subject-marks", studentSubjectMarksRoutes); // Added route for student-subject-marks
 app.use("/api/admin", adminRoutes);
+app.use("/api/hod", hodRoutes);
 
 // --------------------
 // 🔹 Start server

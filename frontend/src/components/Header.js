@@ -34,7 +34,14 @@ function Header() {
               </Link>
             )}
 
-            {user && user.role !== "admin" && (
+            {user && user.role === "HOD" && (
+              <Link className="nav-link" to="/hod">
+                <i className="fa fa-chart-line" style={{ marginRight: 6 }}></i>
+                Dashboard
+              </Link>
+            )}
+
+            {user && user.role !== "admin" && user.role !== "HOD" && (
               <Link className="nav-link" to="/dashboard">
                 <i className="fa fa-chart-line" style={{ marginRight: 6 }}></i>
                 Dashboard

@@ -21,6 +21,10 @@ import ActivityDetails from "./pages/activities/ActivityDetails";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminActivityList from "./pages/activities/AdminActivityList";
 
+// HOD
+import HODDashboard from "./pages/HODDashboard";
+import HODActivityList from "./pages/HODActivityList";
+
 function App() {
   const [backendStatus, setBackendStatus] = useState("Checking backend...");
 
@@ -127,6 +131,25 @@ function App() {
             element={
               <ProtectedRoute>
                 <AdminActivityList />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ⭐ HOD Dashboard Routes */}
+          <Route
+            path="/hod"
+            element={
+              <ProtectedRoute>
+                <HODDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/hod/activities"
+            element={
+              <ProtectedRoute>
+                <HODActivityList />
               </ProtectedRoute>
             }
           />
