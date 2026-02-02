@@ -471,20 +471,30 @@ export const scheduleActivity = async (req, res) => {
 };
 
 /*---------------- DELETE ACTIVITY ----------------*/
+/*---------------- DELETE ACTIVITY ----------------*/
 export const deleteActivity = async (req, res) => {
   try {
     const activityId = req.params.id;
 
-    // Delete activity
+    // Fetch activity first
+    const activity = await Activity.findById(activityId);
+    if (!activity) {
+      return res.status(404).json({ error: "Activity not found" });
+    }
+
+    //  Do NOT allow delete after Conducted
+    if (activity.status === "Conducted" || activity.status === "Marks_Updated") {
+      return res.status(400).json({
+        error: "Cannot delete activity after it is conducted",
+      });
+    }
+
+    //  Safe to delete (Scheduled only)
     await Activity.findByIdAndDelete(activityId);
 
-    // Delete rubric entries
     await RubricCriteria.deleteMany({ activityId });
-
-    // Delete student activity marks
     await StudentActivityMarks.deleteMany({ activityId });
 
-    // Delete from studentsubjectmarks activities array
     await StudentSubjectMarks.updateMany(
       {},
       { $pull: { activities: { activityId } } }
@@ -496,6 +506,7 @@ export const deleteActivity = async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 };
+
 
 /* ----------------- GET TOTAL MARKS FOR AN ACTIVITY ----------------- */
 export const getTotalMarksForActivity = async (req, res) => {

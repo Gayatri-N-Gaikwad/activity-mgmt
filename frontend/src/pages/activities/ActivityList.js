@@ -19,7 +19,7 @@ const STATUS_TRANSITIONS = {
 function ActivityList() {
   const [activities, setActivities] = useState([]);
   const [role, setRole] = useState("");
-  const [userId, setUserId] = useState("");  
+  const [userId, setUserId] = useState("");
   const [expanded, setExpanded] = useState(new Set());
   const [modalOpen, setModalOpen] = useState(false);
   const [modalPayload, setModalPayload] = useState(null);
@@ -29,8 +29,8 @@ function ActivityList() {
     console.log("User object:", user);
 
     setRole(user?.role?.toLowerCase() || "");
-    setUserId(user?.id || "");                 
-    loadActivities(user?.id);                  
+    setUserId(user?.id || "");
+    loadActivities(user?.id);
   }, []);
 
   const loadActivities = async (uid) => {
@@ -63,11 +63,17 @@ function ActivityList() {
       await API.delete(`/activities/delete/${id}`);
       showToast("success", "Activity deleted");
 
-      loadActivities(userId);  
+      loadActivities(userId);
     } catch (err) {
-      console.error(err);
-      showToast("error", "Error deleting activity");
+      console.error("Delete error:", err);
+
+      const message =
+        err?.response?.data?.error ||
+        "Unable to delete activity. Please try again.";
+
+      showToast("error", message);
     }
+
   };
 
   const downloadActivityMarks = async (activityId, activityName) => {
@@ -75,7 +81,7 @@ function ActivityList() {
       const response = await API.get(`/marks/download/${activityId}`, {
         responseType: 'blob'
       });
-      
+
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -84,7 +90,7 @@ function ActivityList() {
       link.click();
       link.parentNode.removeChild(link);
       window.URL.revokeObjectURL(url);
-      
+
       showToast('success', 'Marks downloaded successfully');
     } catch (err) {
       console.error('Download error:', err);
@@ -218,13 +224,13 @@ function ActivityList() {
                   <td className="col-schedule">
                     {act.scheduleDate
                       ? new Date(act.scheduleDate).toLocaleString("en-GB", {
-                          timeZone: "Asia/Kolkata",
-                          year: "numeric",
-                          month: "2-digit",
-                          day: "2-digit",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
+                        timeZone: "Asia/Kolkata",
+                        year: "numeric",
+                        month: "2-digit",
+                        day: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
                       : "Not Scheduled"}
                   </td>
 
@@ -260,9 +266,9 @@ function ActivityList() {
                     )}
 
                     {act.status === "Marks_Updated" && (
-                      <button 
-                        onClick={() => downloadActivityMarks(act._id, act.name)} 
-                        className="btn btn-info" 
+                      <button
+                        onClick={() => downloadActivityMarks(act._id, act.name)}
+                        className="btn btn-info"
                         style={{ marginRight: 12 }}
                       >
                         <i className="fa fa-download" style={{ marginRight: 6 }}></i>
