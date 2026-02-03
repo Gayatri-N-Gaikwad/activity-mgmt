@@ -11,6 +11,7 @@ import StudentSubjectMarks from "../models/StudentSubjectMarks.js";
 import AcademicYear from "../models/AcademicYear.js";
 import ActivityMarkSubdivision from "../models/ActivityMarkSubdivision.js";
 
+
 // Handle CommonJS exports from model files (they use module.exports)
 const RubricCriteria = RubricCriteriaMod.default || RubricCriteriaMod;
 const StudentActivityMarks =
@@ -652,18 +653,16 @@ export const getStudentsByClass = async (req, res) => {
 };
 
 // Get mark subdivisions of an activity
+
 export const getMarkSubdivisions = async (req, res) => {
   try {
-    const activity = await Activity.findById(req.params.id).select('markSubdivisions');
+    const subdivisions = await ActivityMarkSubdivision.find({
+      activityId: req.params.id,
+    }).select("title maxMarks");
 
-    if (!activity) {
-      return res.status(404).json({ message: 'Activity not found' });
-    }
-
-    res.json(activity.markSubdivisions || []);
+    res.json(subdivisions);
   } catch (error) {
-    console.error('Error fetching mark subdivisions:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error fetching mark subdivisions:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
-
