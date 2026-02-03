@@ -513,19 +513,18 @@ function AdminDashboard() {
           <br />
 
           <select
-            value={assignData.classId}
-            onChange={(e) =>
-              setAssignData({ ...assignData, classId: e.target.value })
-            }
-          >
-            <option value="">Select Class</option>
-            {classes.map((c) => (
-              <option key={c._id} value={c._id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-
+  value={assignData.classId}
+  onChange={(e) =>
+    setAssignData({ ...assignData, classId: e.target.value })
+  }
+>
+  <option value="">Select Class</option>
+  {classes.map((c) => (
+    <option key={c._id} value={c._id}>
+      {c.year} - Div {c.division}
+    </option>
+  ))}
+</select>
           <br />
           <br />
 
@@ -541,10 +540,18 @@ function AdminDashboard() {
         <>
           <h2>Upload Students (Excel)</h2>
 
-          <select value={studentClassId} onChange={(e) => setStudentClassId(e.target.value)}>
-            <option value="">Select Class</option>
-            {classes.map((c) => (<option key={c._id} value={c._id}>{c.name}</option>))}
-          </select>
+          <select
+  value={studentClassId}
+  onChange={(e) => setStudentClassId(e.target.value)}
+>
+  <option value="">Select Class</option>
+  {classes.map((c) => (
+    <option key={c._id} value={c._id}>
+      {c.year} - Div {c.division}
+    </option>
+  ))}
+</select>
+
 
           <br /><br />
 
