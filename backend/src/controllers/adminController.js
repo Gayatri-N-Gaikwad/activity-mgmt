@@ -40,22 +40,22 @@ export const createClass = async (req, res) => {
   try {
     const { year, division } = req.body;
 
-if (!year || !division) {
-  return res.status(400).json({
-    success: false,
-    message: "Year and division are required"
-  });
-}
+    if (!year || !division) {
+      return res.status(400).json({
+        success: false,
+        message: "Year and division are required"
+      });
+    }
 
-const existingClass = await Class.findOne({ year, division });
-if (existingClass) {
-  return res.status(409).json({
-    success: false,
-    message: "Class already exists"
-  });
-}
+    const existingClass = await Class.findOne({ year, division });
+    if (existingClass) {
+      return res.status(409).json({
+        success: false,
+        message: "Class already exists"
+      });
+    }
 
-const newClass = await Class.create({ year, division });
+    const newClass = await Class.create({ year, division });
 
     return res.status(201).json({
       success: true,
@@ -178,45 +178,37 @@ export const assignSubjectAndClassToFaculty = async (req, res) => {
       });
     }
 
-    // 5. Prevent duplicate assignment 
-    // a) Same faculty already assigned same subject & class
-    const sameFacultyAssignment = await TeachingAssignment.findOne({
-      facultyId,
+    // 5. Prevent duplicate or overwrite assignment
+
+    const existingAssignment = await TeachingAssignment.findOne({
       subjectId,
       year,
-      division,
-      academicYear,
+      division
     });
 
-    if (sameFacultyAssignment) {
+    // Case 1: Same faculty already assigned
+    if (existingAssignment && existingAssignment.facultyId.toString() === facultyId) {
       return res.status(409).json({
         success: false,
-        message: "This faculty is already assigned this subject for this class",
+        message: "This faculty is already assigned this subject for this class"
       });
     }
 
-    // b) Another faculty already teaching this subject & class
-    const someoneElseAssignment = await TeachingAssignment.findOne({
-      subjectId,
-      year,
-      division,
-      academicYear,
-    });
-
-    if (someoneElseAssignment) {
+    // Case 2: Another faculty already assigned
+    if (existingAssignment && existingAssignment.facultyId.toString() !== facultyId) {
       return res.status(409).json({
         success: false,
-        message: "This subject is already assigned to another faculty for this class",
+        message: "This subject is already assigned to another faculty for this class"
       });
     }
+
 
     // 6. Create assignment 
     const assignment = await TeachingAssignment.create({
       facultyId,
       subjectId,
-      year  ,
-      division,
-      academicYear
+      year,
+      division
     });
 
     return res.status(201).json({
@@ -225,12 +217,26 @@ export const assignSubjectAndClassToFaculty = async (req, res) => {
       data: assignment,
     });
   } catch (error) {
+    // MongoDB duplicate key error (safety net)
+    if (error.code === 11000) {
+      const { year, division } = error.keyValue || {};
+
+      return res.status(409).json({
+        success: false,
+        message: year && division
+          ? `This faculty is already assigned this subject for ${year} - Division ${division}`
+          : "Duplicate teaching assignment detected",
+      });
+    }
+
     console.error("Error assigning subject & class:", error);
+
     return res.status(500).json({
       success: false,
       message: "Server error. Unable to assign subject and class.",
     });
   }
+
 };
 
 

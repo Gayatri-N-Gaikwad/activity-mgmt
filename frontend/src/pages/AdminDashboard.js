@@ -19,7 +19,10 @@ function AdminDashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("assignments");
 
-  const [className, setClassName] = useState("");
+  const [classData, setClassData] = useState({
+    year: "",
+    division: ""
+  });
   const [subject, setSubject] = useState({ name: "", code: "" });
 
   const [assignData, setAssignData] = useState({
@@ -100,7 +103,7 @@ function AdminDashboard() {
 
         // Set faculty for the division - handle different division formats
         const subjectData = subjectMap.get(subjectId);
-        
+
         // Match divisions: "09", "9", "Div 9", etc.
         if (division === '09' || division === '9' || division.toLowerCase().includes('9')) {
           subjectData.div9 = facultyName;
@@ -175,19 +178,25 @@ function AdminDashboard() {
 
   // Add Class
   const handleAddClass = async () => {
-    if (!className) {
-      showToast("error", "Enter class name");
+    const { year, division } = classData;
+
+    if (!year || !division) {
+      showToast("error", "Select year and division");
       return;
     }
 
     try {
-      await addClass(className);
+      await addClass({ year, division });
       showToast("success", "Class added successfully");
-      setClassName("");
+
+      setClassData({ year: "", division: "" });
     } catch (err) {
-      showToast("error", "Error adding class");
+      const message =
+        err?.response?.data?.message || "Error adding class";
+      showToast("error", message);
     }
   };
+
 
   // Add Subject
   const handleAddSubject = async () => {
@@ -224,8 +233,14 @@ function AdminDashboard() {
         classId: "",
       });
     } catch (err) {
-      showToast("error", "Error assigning faculty");
+      const message =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        "Error assigning faculty";
+
+      showToast("error", message);
     }
+
   };
 
   // Add student data
@@ -314,17 +329,17 @@ function AdminDashboard() {
             <>
               <h2>Subject Allocations</h2>
               <div style={{ marginTop: "20px" }}>
-                <button 
+                <button
                   onClick={() => setSelectedYear('SY')}
                 >
                   Second Year
                 </button>{" "}
-                <button 
+                <button
                   onClick={() => setSelectedYear('TE')}
                 >
                   Third Year
                 </button>{" "}
-                <button 
+                <button
                   onClick={() => setSelectedYear('BE')}
                 >
                   Fourth Year
@@ -333,7 +348,7 @@ function AdminDashboard() {
             </>
           ) : (
             <>
-              <button 
+              <button
                 onClick={() => {
                   setSelectedYear(null);
                   setAllocationData([]);
@@ -343,9 +358,9 @@ function AdminDashboard() {
               </button>
               <h2>
                 Subject Allocations - {
-                  selectedYear === 'SY' ? 'Second Year' : 
-                  selectedYear === 'TE' ? 'Third Year' : 
-                  'Fourth Year'
+                  selectedYear === 'SY' ? 'Second Year' :
+                    selectedYear === 'TE' ? 'Third Year' :
+                      'Fourth Year'
                 }
               </h2>
               <table border="1" cellPadding="8" style={{ marginTop: "20px", width: "100%" }}>
@@ -366,52 +381,52 @@ function AdminDashboard() {
                           <br />
                           <small style={{ color: "gray" }}>{item.subjectCode}</small>
                         </td>
-                        <td 
-                          style={{ 
+                        <td
+                          style={{
                             cursor: item.div9 && item.div9 !== '-' ? 'pointer' : 'default',
                             color: item.div9 && item.div9 !== '-' ? 'blue' : 'inherit',
                             textDecoration: item.div9 && item.div9 !== '-' ? 'underline' : 'none'
                           }}
                           onClick={() => item.div9 && item.div9 !== '-' && item.div9Info && handleFacultyClick(
-                            item.div9, 
-                            item.subjectId, 
-                            item.subjectName, 
+                            item.div9,
+                            item.subjectId,
+                            item.subjectName,
                             item.div9Info.facultyId,
-                            item.div9Info.division, 
+                            item.div9Info.division,
                             selectedYear
                           )}
                         >
                           {item.div9 || '-'}
                         </td>
-                        <td 
-                          style={{ 
+                        <td
+                          style={{
                             cursor: item.div10 && item.div10 !== '-' ? 'pointer' : 'default',
                             color: item.div10 && item.div10 !== '-' ? 'blue' : 'inherit',
                             textDecoration: item.div10 && item.div10 !== '-' ? 'underline' : 'none'
                           }}
                           onClick={() => item.div10 && item.div10 !== '-' && item.div10Info && handleFacultyClick(
-                            item.div10, 
-                            item.subjectId, 
-                            item.subjectName, 
+                            item.div10,
+                            item.subjectId,
+                            item.subjectName,
                             item.div10Info.facultyId,
-                            item.div10Info.division, 
+                            item.div10Info.division,
                             selectedYear
                           )}
                         >
                           {item.div10 || '-'}
                         </td>
-                        <td 
-                          style={{ 
+                        <td
+                          style={{
                             cursor: item.div11 && item.div11 !== '-' ? 'pointer' : 'default',
                             color: item.div11 && item.div11 !== '-' ? 'blue' : 'inherit',
                             textDecoration: item.div11 && item.div11 !== '-' ? 'underline' : 'none'
                           }}
                           onClick={() => item.div11 && item.div11 !== '-' && item.div11Info && handleFacultyClick(
-                            item.div11, 
-                            item.subjectId, 
-                            item.subjectName, 
+                            item.div11,
+                            item.subjectId,
+                            item.subjectName,
                             item.div11Info.facultyId,
-                            item.div11Info.division, 
+                            item.div11Info.division,
                             selectedYear
                           )}
                         >
@@ -436,17 +451,41 @@ function AdminDashboard() {
       {activeTab === "addClass" && (
         <>
           <h2>Add Class</h2>
-          <input
-            type="text"
-            placeholder="Class Name"
-            value={className}
-            onChange={(e) => setClassName(e.target.value)}
-          />
-          <br />
-          <br />
+
+          {/* YEAR */}
+          <select
+            value={classData.year}
+            onChange={(e) =>
+              setClassData({ ...classData, year: e.target.value })
+            }
+          >
+            <option value="">Select Year</option>
+            <option value="SY">Second Year (SY)</option>
+            <option value="TE">Third Year (TE)</option>
+            <option value="BE">Fourth Year (BE)</option>
+          </select>
+
+          <br /><br />
+
+          {/* DIVISION */}
+          <select
+            value={classData.division}
+            onChange={(e) =>
+              setClassData({ ...classData, division: e.target.value })
+            }
+          >
+            <option value="">Select Division</option>
+            <option value="9">Div 9</option>
+            <option value="10">Div 10</option>
+            <option value="11">Div 11</option>
+          </select>
+
+          <br /><br />
+
           <button onClick={handleAddClass}>Add Class</button>
         </>
       )}
+
 
       {activeTab === "addSubject" && (
         <>
@@ -513,18 +552,18 @@ function AdminDashboard() {
           <br />
 
           <select
-  value={assignData.classId}
-  onChange={(e) =>
-    setAssignData({ ...assignData, classId: e.target.value })
-  }
->
-  <option value="">Select Class</option>
-  {classes.map((c) => (
-    <option key={c._id} value={c._id}>
-      {c.year} - Div {c.division}
-    </option>
-  ))}
-</select>
+            value={assignData.classId}
+            onChange={(e) =>
+              setAssignData({ ...assignData, classId: e.target.value })
+            }
+          >
+            <option value="">Select Class</option>
+            {classes.map((c) => (
+              <option key={c._id} value={c._id}>
+                {c.year} - Div {c.division}
+              </option>
+            ))}
+          </select>
           <br />
           <br />
 
@@ -541,16 +580,16 @@ function AdminDashboard() {
           <h2>Upload Students (Excel)</h2>
 
           <select
-  value={studentClassId}
-  onChange={(e) => setStudentClassId(e.target.value)}
->
-  <option value="">Select Class</option>
-  {classes.map((c) => (
-    <option key={c._id} value={c._id}>
-      {c.year} - Div {c.division}
-    </option>
-  ))}
-</select>
+            value={studentClassId}
+            onChange={(e) => setStudentClassId(e.target.value)}
+          >
+            <option value="">Select Class</option>
+            {classes.map((c) => (
+              <option key={c._id} value={c._id}>
+                {c.year} - Div {c.division}
+              </option>
+            ))}
+          </select>
 
 
           <br /><br />
