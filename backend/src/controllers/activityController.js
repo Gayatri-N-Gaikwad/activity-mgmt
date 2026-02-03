@@ -9,6 +9,7 @@ import TeachingAssignment from "../models/TeachingAssignment.js";
 import Student from "../models/Student.js";
 import StudentSubjectMarks from "../models/StudentSubjectMarks.js";
 import AcademicYear from "../models/AcademicYear.js";
+import ActivityMarkSubdivision from "../models/ActivityMarkSubdivision.js";
 
 // Handle CommonJS exports from model files (they use module.exports)
 const RubricCriteria = RubricCriteriaMod.default || RubricCriteriaMod;
@@ -22,7 +23,20 @@ export const createActivity = async (req, res) => {
     const userId = user._id || user.id || user.userId;
     const userEmail = user.email || user.mail || null;
 
-    const { name, description, scheduleDate, assignmentId, marks } = req.body;
+    const {
+      name,
+      description,
+      scheduleDate,
+      assignmentId,
+      marks,
+      markSubdivisions // 👈 NEW
+    } = req.body;
+
+    /* ---------------- BASIC VALIDATIONS ---------------- */
+
+    if (!name || !description) {
+      return res.status(400).json({ error: "Name and description are required" });
+    }
 
     if (!scheduleDate) {
       return res.status(400).json({ error: "scheduleDate is required" });
@@ -30,22 +44,33 @@ export const createActivity = async (req, res) => {
 
     const parsedDate = new Date(scheduleDate);
 
-    // ---------------- Academic Year validation ----------------
-    const academicYear = await AcademicYear.findOne({
-      isActive: true,
-    }).select("semesterStartDate semesterEndDate"); 
+    if (isNaN(parsedDate.getTime())) {
+      return res.status(400).json({ error: "Invalid scheduleDate format" });
+    }
+
+    const now = new Date();
+    if (parsedDate <= now) {
+      return res.status(400).json({
+        error: "Activity cannot be scheduled in the past",
+      });
+    }
+
+    /* ---------------- Academic Year validation ---------------- */
+
+    const academicYear = await AcademicYear.findOne({ isActive: true })
+      .select("semesterStartDate semesterEndDate");
 
     if (academicYear?.semesterStartDate && academicYear?.semesterEndDate) {
-      const onlyDate = (d) => {
+      const normalize = (d) => {
         const date = new Date(d);
         date.setUTCHours(0, 0, 0, 0);
         return date;
       };
 
-      const start = onlyDate(academicYear.semesterStartDate); 
-      const end = onlyDate(academicYear.semesterEndDate);    
-      const scheduled = onlyDate(parsedDate);                 
-      
+      const start = normalize(academicYear.semesterStartDate);
+      const end = normalize(academicYear.semesterEndDate);
+      const scheduled = normalize(parsedDate);
+
       if (scheduled < start || scheduled > end) {
         return res.status(400).json({
           error: `Activity schedule date must be between ${start.toDateString()} and ${end.toDateString()}`,
@@ -53,23 +78,12 @@ export const createActivity = async (req, res) => {
       }
     }
 
-    if (isNaN(parsedDate.getTime())) {
-      return res.status(400).json({ error: "Invalid scheduleDate format" });
-    }
-
-    const now = new Date();
-
-    if (parsedDate <= now) {
-      return res.status(400).json({
-        error: "Activity cannot be scheduled in the past",
-      });
-    }
+    /* ---------------- Assignment validation ---------------- */
 
     if (!assignmentId) {
       return res.status(400).json({ error: "assignmentId is required" });
     }
 
-    /*---------------- ASSIGNMENT VALIDATION ----------------*/
     const assignment = await TeachingAssignment.findById(assignmentId);
     if (!assignment) {
       return res.status(400).json({
@@ -78,15 +92,51 @@ export const createActivity = async (req, res) => {
       });
     }
 
-    // No cap on activities per assignment; simply validate provided marks
-    const numericMarks = Number(marks);
-    if (!Number.isFinite(numericMarks) || numericMarks <= 0) {
+    /* ---------------- Total Marks validation ---------------- */
+
+    const totalMarks = Number(marks);
+    if (!Number.isFinite(totalMarks) || totalMarks <= 0) {
       return res.status(400).json({ error: "Marks must be a positive number" });
     }
 
-    const rubricCriteria = [{ name: name || "Activity", marks: numericMarks }];
+    /* ---------------- Mark Subdivision validation (NEW) ---------------- */
 
-    // Create activity
+    let subdivisionsToSave = [];
+
+    if (Array.isArray(markSubdivisions) && markSubdivisions.length > 0) {
+      let sum = 0;
+
+      for (const sub of markSubdivisions) {
+        if (!sub.title || typeof sub.title !== "string") {
+          return res.status(400).json({
+            error: "Each mark subdivision must have a title",
+          });
+        }
+
+        const subMarks = Number(sub.marks);
+        if (!Number.isFinite(subMarks) || subMarks <= 0) {
+          return res.status(400).json({
+            error: "Subdivision marks must be a positive number",
+          });
+        }
+
+        sum += subMarks;
+
+        subdivisionsToSave.push({
+          title: sub.title,
+          maxMarks: subMarks,
+        });
+      }
+
+      if (sum !== totalMarks) {
+        return res.status(400).json({
+          error: `Sum of subdivision marks (${sum}) must equal total marks (${totalMarks})`,
+        });
+      }
+    }
+
+    /* ---------------- Create Activity ---------------- */
+
     const activity = await Activity.create({
       name,
       description,
@@ -95,14 +145,20 @@ export const createActivity = async (req, res) => {
       assignmentId,
     });
 
-    // Save rubric
-    await RubricCriteria.create({
-      activityId: activity._id,
-      name: rubricCriteria[0].name,
-      maxMarks: rubricCriteria[0].marks,
-    });
+    /* ---------------- Save mark subdivisions (DISPLAY ONLY) ---------------- */
 
-    // Reminder scheduling
+    if (subdivisionsToSave.length > 0) {
+      const subdivisionDocs = subdivisionsToSave.map((s) => ({
+        activityId: activity._id,
+        title: s.title,
+        maxMarks: s.maxMarks,
+      }));
+
+      await ActivityMarkSubdivision.insertMany(subdivisionDocs);
+    }
+
+    /* ---------------- Reminder scheduling ---------------- */
+
     const MS_DAY = 24 * 60 * 60 * 1000;
     const d3 = new Date(parsedDate.getTime() - 3 * MS_DAY);
     const d1 = new Date(parsedDate.getTime() - 1 * MS_DAY);
@@ -115,6 +171,7 @@ export const createActivity = async (req, res) => {
         _id: activity._id,
       });
     }
+
     if (d1 > Date.now()) {
       scheduleActivityReminder({
         assignedToEmail: userEmail,
@@ -124,10 +181,13 @@ export const createActivity = async (req, res) => {
       });
     }
 
-    res.json({
+    /* ---------------- Final Response ---------------- */
+
+    res.status(201).json({
       message: "Activity created successfully",
-      activity,
+      activityId: activity._id,
     });
+
   } catch (error) {
     console.error("🔥 createActivity ERROR:", error);
     res.status(500).json({ error: "Server error" });
@@ -591,4 +651,19 @@ export const getStudentsByClass = async (req, res) => {
   }
 };
 
+// Get mark subdivisions of an activity
+export const getMarkSubdivisions = async (req, res) => {
+  try {
+    const activity = await Activity.findById(req.params.id).select('markSubdivisions');
+
+    if (!activity) {
+      return res.status(404).json({ message: 'Activity not found' });
+    }
+
+    res.json(activity.markSubdivisions || []);
+  } catch (error) {
+    console.error('Error fetching mark subdivisions:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
 

@@ -16,6 +16,8 @@ function CreateActivity() {
   const [assignments, setAssignments] = useState([]);
   const [assignmentId, setAssignmentId] = useState("");
 
+  const [markSubdivisions, setMarkSubdivisions] = useState([]);
+
   const facultyId = user?.id;
 
   /* ============================================
@@ -26,7 +28,7 @@ function CreateActivity() {
     (async () => {
       try {
         const res = await API.get(
-          `/teaching-assignment/byfaculty/${facultyId}`
+          `/teaching-assignment/byfaculty/${facultyId}`,
         );
         setAssignments(res.data);
       } catch (err) {
@@ -38,6 +40,23 @@ function CreateActivity() {
   /* ============================================
       SUBMIT HANDLER
   ============================================ */
+
+  const addSubdivision = () => {
+    setMarkSubdivisions([...markSubdivisions, { title: "", marks: "" }]);
+  };
+
+  const removeSubdivision = (index) => {
+    const next = [...markSubdivisions];
+    next.splice(index, 1);
+    setMarkSubdivisions(next);
+  };
+
+  const updateSubdivision = (index, field, value) => {
+    const next = [...markSubdivisions];
+    next[index][field] = value;
+    setMarkSubdivisions(next);
+  };
+
   const create = async (e) => {
     e.preventDefault();
 
@@ -68,6 +87,38 @@ function CreateActivity() {
         return;
       }
 
+      let subdivisionPayload = [];
+
+      if (markSubdivisions.some((s) => s.title || s.marks)) {
+        let sum = 0;
+
+        for (const s of markSubdivisions) {
+          if (!s.title || !s.marks) {
+            showToast("error", "All subdivision fields are required");
+            return;
+          }
+          const m = Number(s.marks);
+          if (!Number.isFinite(m) || m <= 0) {
+            showToast("error", "Subdivision marks must be valid numbers");
+            return;
+          }
+          sum += m;
+        }
+
+        if (sum !== finalMarks) {
+          showToast(
+            "error",
+            `Subdivision marks (${sum}) must equal total marks (${finalMarks})`,
+          );
+          return;
+        }
+
+        subdivisionPayload = markSubdivisions.map((s) => ({
+          title: s.title,
+          marks: Number(s.marks),
+        }));
+      }
+
       //  Create activity
       const payload = {
         name,
@@ -75,11 +126,12 @@ function CreateActivity() {
         scheduleDate: formattedDate,
         assignmentId,
         marks: finalMarks,
+        markSubdivisions: subdivisionPayload,
       };
 
       const actRes = await API.post("/activities/create", payload);
 
-      const activityId = actRes.data.activity?._id;
+      const activityId = actRes.data.activityId;
       if (!activityId) {
         console.error("Activity creation response:", actRes.data);
         throw new Error("Activity creation failed: No _id returned");
@@ -87,14 +139,14 @@ function CreateActivity() {
 
       showToast(
         "success",
-        `Activity "${name}" created with ${finalMarks} marks`
+        `Activity "${name}" created with ${finalMarks} marks`,
       );
       navigate("/activities");
     } catch (err) {
       console.error("Create activity error:", err);
       showToast(
         "error",
-        err.response?.data?.error || err.message || "Failed to create activity"
+        err.response?.data?.error || err.message || "Failed to create activity",
       );
     }
   };
@@ -157,10 +209,58 @@ function CreateActivity() {
             <input
               type="number"
               value={activityMarks}
-              onChange={(e) => setActivityMarks(e.target.value)}
+              onChange={(e) => {
+                setActivityMarks(e.target.value);
+                setMarkSubdivisions([]); // 👈 reset breakdown when total marks change
+              }}
               min={1}
               required
             />
+          </div>
+        )}
+
+        {assignmentId && activityMarks && (
+          <div className="form-row">
+            <label>Marks Breakdown (optional)</label>
+
+            {markSubdivisions.map((row, idx) => (
+              <div
+                key={idx}
+                style={{ display: "flex", gap: 8, marginBottom: 8 }}
+              >
+                <input
+                  placeholder="Subtopic / Component"
+                  value={row.title}
+                  onChange={(e) =>
+                    updateSubdivision(idx, "title", e.target.value)
+                  }
+                />
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="Marks"
+                  value={row.marks}
+                  onChange={(e) =>
+                    updateSubdivision(idx, "marks", e.target.value)
+                  }
+                  style={{ width: 100 }}
+                />
+                {markSubdivisions.length > 1 && (
+                  <button type="button" onClick={() => removeSubdivision(idx)}>
+                    ❌
+                  </button>
+                )}
+              </div>
+            ))}
+
+            <button type="button" onClick={addSubdivision}>
+              + Add Subdivision
+            </button>
+
+            <small style={{ color: "#666" }}>
+              Breakdown is for display only. Faculty will enter total marks
+              later.
+            </small>
           </div>
         )}
 

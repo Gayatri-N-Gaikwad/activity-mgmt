@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import API from "../../services/api";
 import showToast from '../../utils/toast';
@@ -8,88 +8,57 @@ function EditActivity() {
   const { id } = useParams();
   const navigate = useNavigate();
 
+  // Activity state
   const [activity, setActivity] = useState({
     name: "",
     description: "",
     status: "Scheduled",
-    
     scheduleDate: ""
   });
-  const [rubricRows, setRubricRows] = useState([]);
-  const [rubricDirty, setRubricDirty] = useState(false);
-  const [marksValue, setMarksValue] = useState(0);
-  const [marksDirty, setMarksDirty] = useState(false);
-  const simpleRubric = useMemo(() => rubricRows.length <= 1, [rubricRows]);
 
-  // Lock based on THIS activity's own status
-  const ownLocked = useMemo(
-    () =>
-      activity.status === "Conducted" || activity.status === "Marks_Updated",
-    [activity.status]
-  );
+  // Mark subdivisions state
+  const [markSubdivisions, setMarkSubdivisions] = useState([]);
 
-  // Rubric/marks are locked only if this activity itself is locked
-  const rubricLocked = useMemo(() => ownLocked, [ownLocked]);
+  // Lock if activity is conducted or marks updated
+  const ownLocked = activity.status === "Conducted" || activity.status === "Marks_Updated";
 
+  // Fetch activity and subdivisions
   const fetchActivity = useCallback(async () => {
-    const res = await API.get(`/activities/${id}`);
-    const act = res.data.activity;
-    const rubric = Array.isArray(res.data.rubric) ? res.data.rubric : [];
+    try {
+      // Fetch main activity
+      const res = await API.get(`/activities/${id}`);
+      const act = res.data.activity;
+      setActivity(act);
 
-    setActivity(act);
-    setRubricRows(rubric);
-    setRubricDirty(false);
-
-    if (rubric.length > 0) {
-      setMarksValue(Number(rubric[0].maxMarks || 0));
-    } else {
-      setMarksValue(0);
+      // Fetch mark subdivisions
+      const subsRes = await API.get(`/activities/${id}/mark-subdivisions`);
+      setMarkSubdivisions(subsRes.data || []);
+    } catch (err) {
+      console.error('Error fetching activity or subdivisions', err);
+      showToast('error', 'Failed to load activity');
     }
-    setMarksDirty(false);
-
   }, [id]);
 
+  useEffect(() => {
+    fetchActivity();
+  }, [fetchActivity]);
 
+  // Update activity
   const update = async (e) => {
     e.preventDefault();
 
-    // Do not send assignmentId or reminderOffsets from UI
     const toSend = {
       name: activity.name,
-      description: activity.description,
+      description: activity.description
     };
 
-    // Only include scheduleDate when THIS activity is not already Conducted/Marks_Updated
+    // Only update scheduleDate if activity not locked
     if (!ownLocked) {
-      // normalize to full ISO in UTC interpreting the input as Asia/Kolkata local time
       if (activity.scheduleDate) {
         const iso = parseKolkataInputToISOString(activity.scheduleDate);
         toSend.scheduleDate = iso || activity.scheduleDate;
       } else {
         toSend.scheduleDate = null;
-      }
-    }
-
-    if (!rubricLocked) {
-      if (simpleRubric) {
-        if (marksDirty) {
-          const numericMarks = Number(marksValue);
-          if (!Number.isFinite(numericMarks)) {
-            showToast('error', 'Enter a valid numeric value for marks');
-            return;
-          }
-          if (numericMarks <= 0) {
-            showToast('error', 'Marks must be greater than zero');
-            return;
-          }
-          toSend.marks = numericMarks;
-        }
-      } else if (rubricDirty) {
-        const prepared = rubricRows.map((row, idx) => ({
-          name: row.name || `Criteria ${idx + 1}`,
-          marks: Number(row.maxMarks || 0),
-        }));
-        toSend.rubric = prepared;
       }
     }
 
@@ -103,26 +72,32 @@ function EditActivity() {
     }
   };
 
-useEffect(() => {
-  fetchActivity();
-}, [fetchActivity]);
-
-
   return (
     <div>
       <h2>Edit Activity</h2>
 
       <form onSubmit={update}>
+        {/* Activity Name */}
         <div className="form-row">
           <label>Activity Name</label>
-          <input value={activity.name} onChange={(e) => setActivity({ ...activity, name: e.target.value })} required />
+          <input
+            value={activity.name}
+            onChange={(e) => setActivity({ ...activity, name: e.target.value })}
+            required
+          />
         </div>
 
+        {/* Description */}
         <div className="form-row">
           <label>Description</label>
-          <textarea value={activity.description} onChange={(e) => setActivity({ ...activity, description: e.target.value })} required />
+          <textarea
+            value={activity.description}
+            onChange={(e) => setActivity({ ...activity, description: e.target.value })}
+            required
+          />
         </div>
 
+        {/* Schedule Date */}
         <div className="form-row">
           <label>Schedule Date & Time</label>
           <input
@@ -139,67 +114,25 @@ useEffect(() => {
           )}
         </div>
 
-        {simpleRubric ? (
+        {/* Mark Subdivisions Display */}
+        {markSubdivisions.length > 0 && (
           <div className="form-row">
-            <label>Activity Marks</label>
-            <input
-              type="number"
-              min="1"
-              value={marksValue}
-              onChange={(e) => {
-                setMarksValue(e.target.value);
-                setMarksDirty(true);
-              }}
-              disabled={rubricLocked}
-            />
-            {rubricLocked && (
-              <small style={{ color: '#666' }}>
-                Marks locked once this activity is Conducted or Marks Updated.
-              </small>
-            )}
-          </div>
-        ) : (
-          <div className="form-row">
-            <label>Rubric Criteria</label>
-            {rubricRows.map((row, idx) => (
-              <div key={row._id || idx} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                <input
-                  placeholder={`Criteria ${idx + 1} name`}
-                  value={row.name || ''}
-                  onChange={(e) => {
-                    const next = [...rubricRows];
-                    next[idx] = { ...next[idx], name: e.target.value };
-                    setRubricRows(next);
-                    setRubricDirty(true);
-                  }}
-                  disabled={rubricLocked}
-                />
-                <input
-                  type="number"
-                  min="0"
-                  value={row.maxMarks || 0}
-                  onChange={(e) => {
-                    const next = [...rubricRows];
-                    next[idx] = { ...next[idx], maxMarks: e.target.value };
-                    setRubricRows(next);
-                    setRubricDirty(true);
-                  }}
-                  style={{ width: 120 }}
-                  disabled={rubricLocked}
-                />
-              </div>
-            ))}
-            {rubricLocked && (
-              <small style={{ color: '#666' }}>
-                Rubric locked once this activity or its sibling activity has final marks.
-              </small>
-            )}
+            <label>Marks Breakdown</label>
+            <ul>
+              {markSubdivisions.map((s) => (
+                <li key={s._id}>
+                  {s.title} – {s.maxMarks}
+                </li>
+              ))}
+            </ul>
+            <small style={{ color: "#666" }}>
+              Marks breakdown is for information only and cannot be edited.
+            </small>
           </div>
         )}
 
-        {/* Status is edited inline on the Activities table; keep form focused on content and schedule */}
-
-        <div style={{ display: 'flex', gap: 12 }}>
+        {/* Buttons */}
+        <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
           <button type="submit" className="btn btn-primary">Update</button>
           <button type="button" className="btn btn-outline" onClick={() => navigate('/activities')}>Back</button>
         </div>

@@ -38,6 +38,7 @@ import {
   getActivitiesByAssignment,
   getActivitiesByClassSubject,
   getStudentsByClass,
+  getMarkSubdivisions
 } from "../controllers/activityController.js";
 
 const router = express.Router();
@@ -85,7 +86,10 @@ router.delete(
 );
 
 
-
 // GET all students in a class
 router.get("/class/:classId/students", getStudentsByClass);
+
+// GET /api/activities/:id/mark-subdivisions
+router.get('/:id/mark-subdivisions', getMarkSubdivisions);
+
 export default router;
