@@ -11,6 +11,7 @@ import {
   uploadStudentsExcel
 } from "../services/teachingAssignmentApi";
 import showToast from "../utils/toast";
+import API from "../services/api";
 
 import { setAcademicYear as setAcademicYearApi, getActiveAcademicYear } from "../services/teachingAssignmentApi";
 
@@ -48,6 +49,11 @@ function AdminDashboard() {
   const [selectedYear, setSelectedYear] = useState(null); // 'SY', 'TE', or 'BE'
   const [allocationData, setAllocationData] = useState([]); // All subjects with their faculty assignments
 
+  // Activities states
+  const [activities, setActivities] = useState([]);
+  const [loadingActivities, setLoadingActivities] = useState(false);
+  const [showActivities, setShowActivities] = useState(false);
+
   // Check if user is admin
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
@@ -63,6 +69,13 @@ function AdminDashboard() {
       fetchAllocationData(selectedYear);
     }
   }, [selectedYear]);
+
+  // Fetch activities when showing them
+  useEffect(() => {
+    if (showActivities && activities.length === 0) {
+      fetchActivities();
+    }
+  }, [showActivities]);
 
   const fetchAllocationData = async (year) => {
     try {
@@ -121,6 +134,19 @@ function AdminDashboard() {
     } catch (err) {
       showToast("error", "Failed to load allocation data");
       console.error(err);
+    }
+  };
+
+  const fetchActivities = async () => {
+    setLoadingActivities(true);
+    try {
+      const res = await API.get("/activities/all");
+      setActivities(res.data.activities || []);
+    } catch (err) {
+      console.error(err);
+      showToast("error", "Failed to load activities");
+    } finally {
+      setLoadingActivities(false);
     }
   };
 
@@ -306,6 +332,7 @@ function AdminDashboard() {
           setActiveTab("assignments");
           setSelectedYear(null);
           setAllocationData([]);
+          setShowActivities(false);
         }}>
           Subject Allocations
         </button>{" "}
@@ -325,28 +352,37 @@ function AdminDashboard() {
       {/* Content rendering (same as before) */}
       {activeTab === "assignments" && (
         <>
-          {!selectedYear ? (
+          {!selectedYear && !showActivities ? (
             <>
               <h2>Subject Allocations</h2>
               <div style={{ marginTop: "20px" }}>
                 <button
                   onClick={() => setSelectedYear('SY')}
+                  style={{ marginRight: "10px" }}
                 >
                   Second Year
                 </button>{" "}
                 <button
                   onClick={() => setSelectedYear('TE')}
+                  style={{ marginRight: "10px" }}
                 >
                   Third Year
                 </button>{" "}
                 <button
                   onClick={() => setSelectedYear('BE')}
+                  style={{ marginRight: "10px" }}
                 >
                   Fourth Year
                 </button>
+                <button
+                  onClick={() => setShowActivities(true)}
+                  style={{ marginLeft: "20px", backgroundColor: "#28a745", color: "white" }}
+                >
+                  View All Activities
+                </button>
               </div>
             </>
-          ) : (
+          ) : selectedYear && !showActivities ? (
             <>
               <button
                 onClick={() => {
@@ -444,7 +480,50 @@ function AdminDashboard() {
                 </tbody>
               </table>
             </>
-          )}
+          ) : showActivities ? (
+            <>
+              <button
+                onClick={() => setShowActivities(false)}
+              >
+                ← Back
+              </button>
+              <h2>All Activities</h2>
+              {loadingActivities ? (
+                <div>Loading activities...</div>
+              ) : (
+                <>
+                  {activities.length === 0 ? (
+                    <p>No activities found.</p>
+                  ) : (
+                    <table border="1" cellPadding="8" style={{ marginTop: "20px", width: "100%" }}>
+                      <thead>
+                        <tr>
+                          <th>Activity Name</th>
+                          <th>Status</th>
+                          <th>Scheduled Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activities.map((activity) => (
+                          <tr key={activity._id}>
+                            <td>{activity.name || "N/A"}</td>
+                            <td style={{ fontWeight: "bold" }}>
+                              {activity.status || "N/A"}
+                            </td>
+                            <td>
+                              {activity.scheduleDate
+                                ? new Date(activity.scheduleDate).toLocaleString("en-GB")
+                                : "Not Scheduled"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </>
+              )}
+            </>
+          ) : null}
         </>
       )}
 
@@ -502,7 +581,9 @@ function AdminDashboard() {
             type="text"
             placeholder="Subject Code"
             value={subject.code}
-            onChange={(e) => setSubject({ ...subject, code: e.target.value })}
+            onChange={(e) =>
+              setSubject({ ...subject, code: e.target.value })
+            }
           />
           <br />
           <br />
@@ -510,27 +591,22 @@ function AdminDashboard() {
         </>
       )}
 
-      {/* =======================
-         ASSIGN FACULTY (DROPDOWNS)
-      ======================= */}
       {activeTab === "assign" && (
         <>
-          <h2>Assign Subject & Class to Faculty</h2>
-
+          <h2>Assign Faculty</h2>
           <select
-            value={assignData.facultyId}
+            value={assignData.classId}
             onChange={(e) =>
-              setAssignData({ ...assignData, facultyId: e.target.value })
+              setAssignData({ ...assignData, classId: e.target.value })
             }
           >
-            <option value="">Select Faculty</option>
-            {faculties.map((f) => (
-              <option key={f._id} value={f._id}>
-                {f.name} ({f.email})
+            <option value="">Select Class</option>
+            {classes.map((cls) => (
+              <option key={cls._id} value={cls._id}>
+                {cls.year} - Div {cls.division}
               </option>
             ))}
           </select>
-
           <br />
           <br />
 
@@ -541,26 +617,25 @@ function AdminDashboard() {
             }
           >
             <option value="">Select Subject</option>
-            {subjects.map((s) => (
-              <option key={s._id} value={s._id}>
-                {s.name} ({s.code})
+            {subjects.map((subj) => (
+              <option key={subj._id} value={subj._id}>
+                {subj.name} ({subj.code})
               </option>
             ))}
           </select>
-
           <br />
           <br />
 
           <select
-            value={assignData.classId}
+            value={assignData.facultyId}
             onChange={(e) =>
-              setAssignData({ ...assignData, classId: e.target.value })
+              setAssignData({ ...assignData, facultyId: e.target.value })
             }
           >
-            <option value="">Select Class</option>
-            {classes.map((c) => (
-              <option key={c._id} value={c._id}>
-                {c.year} - Div {c.division}
+            <option value="">Select Faculty</option>
+            {faculties.map((fac) => (
+              <option key={fac._id} value={fac._id}>
+                {fac.name}
               </option>
             ))}
           </select>
@@ -571,94 +646,73 @@ function AdminDashboard() {
         </>
       )}
 
-
-      {/* =======================
-         UPLOAD STUDENTS (CLASS DROPDOWN)
-      ======================= */}
       {activeTab === "uploadStudents" && (
         <>
-          <h2>Upload Students (Excel)</h2>
-
+          <h2>Upload Students</h2>
           <select
             value={studentClassId}
             onChange={(e) => setStudentClassId(e.target.value)}
           >
             <option value="">Select Class</option>
-            {classes.map((c) => (
-              <option key={c._id} value={c._id}>
-                {c.year} - Div {c.division}
+            {classes.map((cls) => (
+              <option key={cls._id} value={cls._id}>
+                {cls.year} - Div {cls.division}
               </option>
             ))}
           </select>
+          <br />
+          <br />
 
+          <input
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={(e) => setStudentFile(e.target.files?.[0] || null)}
+          />
+          <br />
+          <br />
 
-          <br /><br />
-
-          <input type="file" accept=".xlsx, .xls" onChange={(e) => setStudentFile(e.target.files[0])} />
-          <br /><br />
-
-          <button onClick={handleStudentUpload}>Upload Students</button>
-
-          <p style={{ marginTop: "10px", fontSize: "14px" }}>
-            Excel format: <b>rollNumber | name</b>
-          </p>
+          <button onClick={handleStudentUpload}>Upload</button>
         </>
       )}
 
-      {!activeAcademicYear && (
-        <p style={{ color: "gray", fontStyle: "italic" }}>
-          No academic year has been set yet.
-        </p>
-      )}
       {activeTab === "academicYear" && (
         <>
-          <h2>Academic Year</h2>
-
+          <h2>Set Academic Year</h2>
           {activeAcademicYear && (
             <p>
-              <b>Current Academic Year:</b> {activeAcademicYear}
+              <strong>Active Academic Year:</strong> {activeAcademicYear}
             </p>
           )}
-
           <input
             type="text"
-            placeholder="e.g. 2024-25"
+            placeholder="Academic Year (e.g., 2024-2025)"
             value={academicYear}
             onChange={(e) => setAcademicYear(e.target.value)}
           />
+          <br />
+          <br />
 
-          <br /><br />
-
-          {/* ✅ Semester Start Date */}
-          <label>Semester Start Date</label><br />
+          <label>Semester Start Date:</label>
           <input
             type="date"
             value={semesterStartDate}
             onChange={(e) => setSemesterStartDate(e.target.value)}
           />
+          <br />
+          <br />
 
-          <br /><br />
-
-          {/* ✅ Semester End Date */}
-          <label>Semester End Date</label><br />
+          <label>Semester End Date:</label>
           <input
             type="date"
             value={semesterEndDate}
             onChange={(e) => setSemesterEndDate(e.target.value)}
           />
+          <br />
+          <br />
 
-          <br /><br />
-
-          <button onClick={handleSetAcademicYear}>
-            Set Academic Year
-          </button>
-
-          <p style={{ marginTop: "10px", fontSize: "14px", color: "gray" }}>
-            This academic year and semester duration will be used across the system.
-          </p>
+          <button onClick={handleSetAcademicYear}>Set Academic Year</button>
         </>
       )}
-
     </div>
   );
 }
