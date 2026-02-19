@@ -58,3 +58,84 @@ export const getClassByYearDivision = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
+/* ========== GOOGLE GROUP EMAIL MANAGEMENT ========== */
+
+/* Update Google Group email for a class */
+export const updateClassGoogleGroupEmail = async (req, res) => {
+  try {
+    const { classId } = req.params;
+    const { google_group_email } = req.body;
+
+    // Validate email format
+    if (!google_group_email) {
+      return res.status(400).json({ error: "Google Group email is required" });
+    }
+
+    // Basic email validation
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@(googlegroups\.com|gmail\.com)$/i;
+    if (!emailRegex.test(google_group_email)) {
+      return res.status(400).json({ 
+        error: "Invalid email format. Must be a valid Google Group (e.g., classname@googlegroups.com)" 
+      });
+    }
+
+    // Update the class
+    const updatedClass = await Class.findByIdAndUpdate(
+      classId,
+      { google_group_email: google_group_email.toLowerCase().trim() },
+      { new: true, runValidators: true }
+    ).select('year division google_group_email');
+
+    if (!updatedClass) {
+      return res.status(404).json({ error: "Class not found" });
+    }
+
+    res.json({
+      message: "Google Group email updated successfully",
+      class: updatedClass
+    });
+  } catch (error) {
+    console.error("Error updating class Google Group email:", error);
+    res.status(500).json({ error: "Server error updating class" });
+  }
+};
+
+/* Get Google Group email for a class */
+export const getClassGoogleGroupEmail = async (req, res) => {
+  try {
+    const { classId } = req.params;
+
+    const classDoc = await Class.findById(classId)
+      .select('year division google_group_email');
+
+    if (!classDoc) {
+      return res.status(404).json({ error: "Class not found" });
+    }
+
+    res.json({
+      class: classDoc
+    });
+  } catch (error) {
+    console.error("Error fetching class Google Group email:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+/* Get all classes with their Google Group emails (for admin) */
+export const getAllClassesWithGoogleGroups = async (req, res) => {
+  try {
+    const classes = await Class.find()
+      .select('year division google_group_email')
+      .sort({ year: 1, division: 1 });
+
+    res.json({
+      message: "Classes with Google Group emails retrieved successfully",
+      classes
+    });
+  } catch (error) {
+    console.error("Error fetching classes with Google Groups:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+};

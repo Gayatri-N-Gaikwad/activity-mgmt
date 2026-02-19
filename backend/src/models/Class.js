@@ -12,7 +12,15 @@ const classSchema = new Schema({
   division: {
     type: String,
     required: true
-  } 
+  },
+
+  // Google Group email for the class - used for sending activity notifications
+  google_group_email: {
+    type: String,
+    default: null,
+    lowercase: true,
+    trim: true
+  }
   
 }, { timestamps: true });
 
