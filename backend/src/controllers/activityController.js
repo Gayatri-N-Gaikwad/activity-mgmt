@@ -10,6 +10,8 @@ import Student from "../models/Student.js";
 import StudentSubjectMarks from "../models/StudentSubjectMarks.js";
 import AcademicYear from "../models/AcademicYear.js";
 import ActivityMarkSubdivision from "../models/ActivityMarkSubdivision.js";
+import { sendNotificationEmail, generateActivityNotificationTemplate, generateActivityUpdateTemplate, generateActivityDeleteTemplate } from "../services/notificationService.js";
+import User from "../models/User.js";
 
 
 // Handle CommonJS exports from model files (they use module.exports)
@@ -156,6 +158,58 @@ export const createActivity = async (req, res) => {
       }));
 
       await ActivityMarkSubdivision.insertMany(subdivisionDocs);
+    }
+
+    /* ---------------- Send creation notification email ---------------- */
+
+    try {
+      const assignmentWithDetails = await TeachingAssignment.findById(
+        activity.assignmentId
+      )
+        .populate("subjectId")
+        .lean();
+
+      if (assignmentWithDetails) {
+        const coordinator = await User.findById(activity.coordinatorId)
+          .select("name")
+          .lean();
+        const className = `${assignmentWithDetails.year} - ${assignmentWithDetails.division}`;
+        const subjectName =
+          assignmentWithDetails.subjectId?.name || "Unknown Subject";
+        const facultyName = coordinator?.name || "Unknown Faculty";
+
+        const classDoc = await Class.findOne({
+          year: assignmentWithDetails.year,
+          division: assignmentWithDetails.division,
+        })
+          .select("google_group_email")
+          .lean();
+
+        if (classDoc?.google_group_email) {
+          const markSubdivisionDocs = await ActivityMarkSubdivision.find({
+            activityId: activity._id,
+          }).lean();
+
+          const { html, text } = generateActivityNotificationTemplate(
+            activity,
+            className,
+            subjectName,
+            facultyName,
+            [],
+            markSubdivisionDocs,
+            totalMarks
+          );
+
+          await sendNotificationEmail(
+            classDoc.google_group_email,
+            `New Activity: ${activity.name}`,
+            html,
+            text
+          );
+        }
+      }
+    } catch (notificationError) {
+      console.error("Error sending creation notification:", notificationError);
     }
 
     /* ---------------- Reminder scheduling ---------------- */
@@ -399,6 +453,13 @@ export const updateActivity = async (req, res) => {
 
     // ---------------- Simple marks update (single rubric) ----------------
     if (marks !== undefined) {
+      // Check if activity is already conducted
+      if (activity.status === "Conducted" || activity.status === "Marks_Updated") {
+        return res.status(400).json({
+          error: "Cannot edit marks after activity has been conducted or marked as updated",
+        });
+      }
+
       const numericMarks = Number(marks);
       if (Number.isNaN(numericMarks)) {
         return res.status(400).json({ error: "Marks must be a numeric value" });
@@ -458,6 +519,53 @@ export const updateActivity = async (req, res) => {
             _id: updatedActivity._id,
           });
       }
+    }
+
+
+
+    // Send update notification email
+    try {
+      const assignmentWithDetails = await TeachingAssignment.findById(
+        activity.assignmentId
+      )
+        .populate("subjectId")
+        .lean();
+
+      if (assignmentWithDetails) {
+        const coordinator = await User.findById(activity.coordinatorId)
+          .select("name")
+          .lean();
+        const className = `${assignmentWithDetails.year} - ${assignmentWithDetails.division}`;
+        const subjectName =
+          assignmentWithDetails.subjectId?.name || "Unknown Subject";
+        const facultyName = coordinator?.name || "Unknown Faculty";
+
+        const classDoc = await Class.findOne({
+          year: assignmentWithDetails.year,
+          division: assignmentWithDetails.division,
+        })
+          .select("google_group_email")
+          .lean();
+
+        if (classDoc?.google_group_email) {
+          const { html, text } = generateActivityUpdateTemplate(
+            activity,
+            className,
+            subjectName,
+            facultyName
+          );
+
+          await sendNotificationEmail(
+            classDoc.google_group_email,
+            `Activity Updated: ${activity.name}`,
+            html,
+            text
+          );
+          
+        }
+      }
+    } catch (notificationError) {
+      console.error("Error sending update notification:", notificationError);
     }
 
     res.json({
@@ -560,6 +668,53 @@ export const deleteActivity = async (req, res) => {
       {},
       { $pull: { activities: { activityId } } }
     );
+
+
+
+    // Send delete notification email
+    try {
+      const assignmentWithDetails = await TeachingAssignment.findById(
+        activity.assignmentId
+      )
+        .populate("subjectId")
+        .lean();
+
+      if (assignmentWithDetails) {
+        const coordinator = await User.findById(activity.coordinatorId)
+          .select("name")
+          .lean();
+        const className = `${assignmentWithDetails.year} - ${assignmentWithDetails.division}`;
+        const subjectName =
+          assignmentWithDetails.subjectId?.name || "Unknown Subject";
+        const facultyName = coordinator?.name || "Unknown Faculty";
+
+        const classDoc = await Class.findOne({
+          year: assignmentWithDetails.year,
+          division: assignmentWithDetails.division,
+        })
+          .select("google_group_email")
+          .lean();
+
+        if (classDoc?.google_group_email) {
+          const { html, text } = generateActivityDeleteTemplate(
+            activity.name,
+            className,
+            subjectName,
+            facultyName
+          );
+
+          await sendNotificationEmail(
+            classDoc.google_group_email,
+            `Activity Deleted: ${activity.name}`,
+            html,
+            text
+          );
+          
+        }
+      }
+    } catch (notificationError) {
+      console.error("Error sending delete notification:", notificationError);
+    }
 
     res.json({ message: "Activity deleted successfully" });
   } catch (error) {

@@ -13,14 +13,18 @@ function EditActivity() {
     name: "",
     description: "",
     status: "Scheduled",
-    scheduleDate: ""
+    scheduleDate: "",
+    marks: ""
   });
 
   // Mark subdivisions state
   const [markSubdivisions, setMarkSubdivisions] = useState([]);
 
-  // Lock if activity is conducted or marks updated
-  const ownLocked = activity.status === "Conducted" || activity.status === "Marks_Updated";
+  // Lock if activity is conducted
+  const ownLocked = activity.status === "Conducted";
+  
+  // Marks can be edited only if status is Scheduled
+  const marksEditable = activity.status !== "Conducted" && activity.status !== "Marks_Updated";
 
   // Fetch activity and subdivisions
   const fetchActivity = useCallback(async () => {
@@ -51,6 +55,11 @@ function EditActivity() {
       name: activity.name,
       description: activity.description
     };
+    
+    // Include marks if it's provided and activity not conducted
+    if (activity.marks && marksEditable) {
+      toSend.marks = activity.marks;
+    }
 
     // Only update scheduleDate if activity not locked
     if (!ownLocked) {
@@ -109,10 +118,39 @@ function EditActivity() {
           />
           {ownLocked && (
             <small style={{ color: '#666' }}>
-              Cannot change schedule after this activity is Conducted or Marks Updated.
+              Cannot change schedule after this activity is Conducted.
             </small>
           )}
         </div>
+
+        {/* Marks */}
+        {marksEditable && (
+          <div className="form-row">
+            <label>Marks</label>
+            <input
+              type="number"
+              value={activity.marks}
+              onChange={(e) => setActivity({ ...activity, marks: e.target.value })}
+              placeholder="Enter total marks"
+              step="0.01"
+              min="0"
+            />
+            <small style={{ color: "#666" }}>
+              You can edit marks only when status is Scheduled.
+            </small>
+          </div>
+        )}
+        {!marksEditable && (
+          <div className="form-row">
+            <label>Marks</label>
+            <input
+              type="number"
+              value={activity.marks || ""}
+              disabled
+              placeholder="Cannot edit marks after activity is conducted or marked as updated"
+            />
+          </div>
+        )}
 
         {/* Mark Subdivisions Display */}
         {markSubdivisions.length > 0 && (

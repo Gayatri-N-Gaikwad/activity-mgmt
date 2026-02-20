@@ -68,7 +68,10 @@ export const generateActivityNotificationTemplate = (
   activityData,
   className,
   subjectName,
-  facultyName
+  facultyName,
+  rubrics = [],
+  markSubdivisions = [],
+  totalMarks = null
 ) => {
   const { name, description, scheduleDate } = activityData;
   const formattedDate = new Date(scheduleDate).toLocaleString("en-IN", {
@@ -79,6 +82,51 @@ export const generateActivityNotificationTemplate = (
     hour: "2-digit",
     minute: "2-digit",
   });
+
+  const normalizedRubrics = Array.isArray(rubrics) ? rubrics : [];
+  const normalizedSubdivisions = Array.isArray(markSubdivisions)
+    ? markSubdivisions
+    : [];
+
+  const formatMarksValue = (value) =>
+    value === null || value === undefined ? "N/A" : value;
+
+  const parsedTotalMarks = Number.isFinite(Number(totalMarks))
+    ? Number(totalMarks)
+    : null;
+
+  const computedTotalMarks = normalizedSubdivisions.length
+    ? normalizedSubdivisions.reduce((sum, subdivision) => {
+        const maxMarks = subdivision.maxMarks ?? subdivision.marks;
+        const value = Number(maxMarks);
+        return Number.isFinite(value) ? sum + value : sum;
+      }, 0)
+    : null;
+
+  const totalMarksValue =
+    parsedTotalMarks !== null ? parsedTotalMarks : computedTotalMarks;
+
+  const totalMarksText =
+    totalMarksValue === null || totalMarksValue === undefined
+      ? "Not provided"
+      : totalMarksValue;
+
+  const subdivisionLines = normalizedSubdivisions
+    .map((subdivision) => {
+      const maxMarks = subdivision.maxMarks ?? subdivision.marks;
+      return `${subdivision.title} (max ${formatMarksValue(maxMarks)})`;
+    })
+    .filter((line) => line.trim() !== "");
+
+  const subdivisionListHtml = subdivisionLines.length
+    ? `<ul style="margin: 10px 0 0 20px; padding: 0;">${subdivisionLines
+        .map((line) => `<li>${line}</li>`)
+        .join("")}</ul>`
+    : '<p style="margin: 10px 0;">Not provided</p>';
+
+  const subdivisionListText = subdivisionLines.length
+    ? subdivisionLines.map((line) => `- ${line}`).join("\n")
+    : "Not provided";
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -126,6 +174,15 @@ export const generateActivityNotificationTemplate = (
             <div class="field">
               <span class="label">Scheduled Date & Time:</span> ${formattedDate}
             </div>
+
+            <div class="field">
+              <span class="label">Total Marks:</span> ${totalMarksText}
+            </div>
+
+            <div class="field">
+              <span class="label">Mark Subdivisions:</span>
+              ${subdivisionListHtml}
+            </div>
             
             <div class="footer">
               <p>This is an automated notification from the Activity Management System.</p>
@@ -146,6 +203,10 @@ Subject: ${subjectName}
 Faculty: ${facultyName}
 Description: ${description}
 Scheduled Date & Time: ${formattedDate}
+Total Marks: ${totalMarksText}
+
+Mark Subdivisions:
+${subdivisionListText}
 
 This is an automated notification from the Activity Management System.
   `;
