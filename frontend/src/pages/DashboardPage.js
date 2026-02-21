@@ -259,42 +259,79 @@ function DashboardPage() {
 
   // Removed attendance handling functions
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) {
+    return (
+      <div className="faculty-dashboard">
+        <div className="dashboard-panel" style={{ textAlign: "center" }}>
+          <h3>Loading dashboard...</h3>
+          <p className="muted">Fetching classes, subjects, students and activity marks.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const totalSubjects = classes.reduce(
+    (sum, cls) => sum + (subjects[cls._id] || []).length,
+    0
+  );
+
+  const totalStudents = students.length;
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h2 style={{ textAlign: "center", marginBottom: "10px" }}>
-        Dashboard – Welcome {user?.name} 👋
-      </h2>
+    <div className="faculty-dashboard">
+      <section className="dashboard-hero">
+        <div>
+          <h2>Faculty Dashboard</h2>
+          <p className="muted">Welcome back, {user?.name}. Track classes, subjects and activity performance in one place.</p>
+          {academicYear && (
+            <p className="dashboard-year">
+              Academic Year: <strong>{academicYear}</strong>
+            </p>
+          )}
+        </div>
+        <div className="dashboard-actions">
+          <button className="btn btn-primary" onClick={() => setRefreshKey((prev) => prev + 1)}>
+            Refresh Data
+          </button>
+        </div>
+      </section>
 
-      {academicYear && (
-        <p style={{ textAlign: "center", color: "#555", marginBottom: "25px" }}>
-          <b>Academic Year:</b> {academicYear}
-        </p>
+      <section className="stats-grid">
+        <article className="stat-card">
+          <span>Assigned Classes</span>
+          <strong>{classes.length}</strong>
+        </article>
+        <article className="stat-card">
+          <span>Assigned Subjects</span>
+          <strong>{totalSubjects}</strong>
+        </article>
+        <article className="stat-card">
+          <span>Total Students</span>
+          <strong>{totalStudents}</strong>
+        </article>
+        <article className="stat-card">
+          <span>Updated Activities</span>
+          <strong>{updatedActivitiesCount}</strong>
+        </article>
+      </section>
+
+      {updatedActivitiesCount < 2 && (
+        <div className="status-alert status-alert-warn">
+          Marks updated for {updatedActivitiesCount}/2 activities. Please update marks for both activities before downloading reports.
+        </div>
       )}
 
-      <div style={{ textAlign: "center", marginBottom: "20px" }}>
-        <button
-          onClick={() => setRefreshKey(prev => prev + 1)}
-          style={{ padding: "10px 20px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "5px", cursor: "pointer", marginRight: "10px" }}
-        >
-          Refresh Data
-        </button>
-
-        {updatedActivitiesCount < 2 && (
-          <p style={{ color: "#d9534f", marginTop: "10px", fontSize: "14px" }}>
-            Marks updated for {updatedActivitiesCount}/2 activities. Please update marks for both activities before downloading.
-          </p>
-        )}
-      </div>
-
-      {classes.length === 0 && <p>No classes assigned.</p>}
+      {classes.length === 0 && <div className="dashboard-panel">No classes assigned.</div>}
 
       {classes.map((cls) => (
-        <div key={cls._id || `${cls.year}-${cls.division}`} style={{ marginBottom: 40 }}>
-          <h3>{cls.year}-{cls.division}</h3>
+        <div key={cls._id || `${cls.year}-${cls.division}`} className="class-block">
+          <div className="class-block-header">
+            <h3>
+              Class {cls.year}-{cls.division}
+            </h3>
+          </div>
 
-          {(subjects[cls._id] || []).length === 0 && <p>No subjects assigned.</p>}
+          {(subjects[cls._id] || []).length === 0 && <div className="dashboard-panel">No subjects assigned.</div>}
 
           {(subjects[cls._id] || []).map((sub) => {
             // Convert IDs to strings for consistent comparison
@@ -321,36 +358,27 @@ function DashboardPage() {
             }
 
             return (
-              <div key={sub._id} style={{ marginBottom: 20 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <h4>{sub.name}</h4>
+              <section key={sub._id} className="subject-card">
+                <div className="subject-card-header">
+                  <div>
+                    <h4>{sub.name}</h4>
+                    <p className="muted">
+                      Students: {classStudents.length} {subjectMaxMarks > 0 ? `• Total max marks: ${subjectMaxMarks}` : ""}
+                    </p>
+                  </div>
                   <button
+                    className="btn btn-info"
                     onClick={() => downloadSubjectReport(cls._id, sub._id, sub.name, `${cls.year}-${cls.division}`)}
                     disabled={downloading}
-                    style={{
-                      padding: "8px 12px",
-                      backgroundColor: "#17a2b8",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor: downloading ? "not-allowed" : "pointer",
-                      fontSize: "14px",
-                      opacity: downloading ? 0.6 : 1
-                    }}
+                    style={{ opacity: downloading ? 0.6 : 1 }}
                     title={`Download marks report for ${sub.name}`}
                   >
-                    <i className="fa fa-download" style={{ marginRight: 6 }}></i>
-                    Download
+                    {downloading ? "Downloading..." : "Download Report"}
                   </button>
                 </div>
 
-                <table
-                  style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                    textAlign: "center",
-                  }}
-                >
+                <div className="subject-table-wrap">
+                <table className="subject-table">
                   <thead>
                     <tr>
                       <th>Roll No</th>
@@ -407,17 +435,22 @@ function DashboardPage() {
                           {activityCells.map((c) => (
                             <React.Fragment key={c.key}>
                               <td>{c.marks}</td>
-                              <td>{c.attendance}</td>
+                              <td>
+                                <span className={`attendance-pill ${c.attendance === "Present" ? "present" : "absent"}`}>
+                                  {c.attendance}
+                                </span>
+                              </td>
                             </React.Fragment>
                           ))}
-                          <td>{total}</td>
-                          <td>{normalizedMarks}</td>
+                          <td><strong>{total}</strong></td>
+                          <td><strong>{normalizedMarks}</strong></td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
-              </div>
+                </div>
+              </section>
             );
           })}
         </div>

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import api from "../services/api";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import showToast from "../utils/toast";
 
 function LoginPage() {
   const navigate = useNavigate(); // ✅ React Router navigation hook
@@ -8,7 +9,6 @@ function LoginPage() {
     email: "",
     password: "",
   });
-  const [message, setMessage] = useState("");
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -16,7 +16,7 @@ function LoginPage() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setMessage("Logging in...");
+    showToast("info", "Logging in...");
     try {
       const res = await api.post("/auth/login", formData);
       const { token, user } = res.data;
@@ -25,44 +25,58 @@ function LoginPage() {
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
 
-      setMessage("✅ Login successful! Redirecting...");
+      showToast("success", "Login successful! Redirecting...");
       
       // ✅ Redirect to home page
       setTimeout(() => navigate("/"), 1000);
     } catch (err) {
-      setMessage("❌ Invalid email or password");
+      showToast("error", "Invalid email or password");
     }
   };
 
   return (
-    <div style={{ textAlign: "center", marginTop: "50px" }}>
-      <h2>Login</h2>
-      <form onSubmit={handleLogin}>
-        <input
-          name="email"
-          type="email"
-          placeholder="Email"
-          value={formData.email}
-          onChange={handleChange}
-          required
-        /><br /><br />
+    <div className="auth-page">
+      <div className="auth-card login-card">
+        <div className="auth-brand">Faculty Portal</div>
+        <h2 className="auth-title">Welcome back</h2>
+        <p className="auth-subtitle">Sign in to continue managing academic activities.</p>
 
-        <input
-          name="password"
-          type="password"
-          placeholder="Password"
-          value={formData.password}
-          onChange={handleChange}
-          required
-        /><br /><br />
+        <form className="auth-form" onSubmit={handleLogin}>
+          <div className="auth-field">
+            <label htmlFor="email">Email</label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="faculty@example.com"
+              value={formData.email}
+              onChange={handleChange}
+              required
+            />
+          </div>
 
-        <button type="submit">Login</button>
-      </form>
+          <div className="auth-field">
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Enter password"
+              value={formData.password}
+              onChange={handleChange}
+              required
+            />
+          </div>
 
-      <p>{message}</p>
-      <p>
-        Don’t have an account? <a href="/register">Register</a>
-      </p>
+          <button className="btn btn-primary auth-submit" type="submit">
+            Login
+          </button>
+        </form>
+
+        <p className="auth-footer">
+          Don’t have an account? <Link to="/register">Create account</Link>
+        </p>
+      </div>
     </div>
   );
 }

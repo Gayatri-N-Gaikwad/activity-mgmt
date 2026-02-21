@@ -15,16 +15,8 @@ function LogoutButton() {
 
   return (
     <button
+      className="btn btn-danger"
       onClick={handleLogout}
-      style={{
-        padding: "8px 16px",
-        backgroundColor: "#e74c3c",
-        color: "white",
-        border: "none",
-        borderRadius: "6px",
-        cursor: "pointer",
-        marginTop: "10px",
-      }}
     >
       Logout
     </button>

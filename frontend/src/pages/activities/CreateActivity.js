@@ -155,10 +155,13 @@ function CreateActivity() {
       UI
   ============================================ */
   return (
-    <div className="card">
-      <h2>Create Activity</h2>
+    <div className="create-activity-page">
+      <div className="create-activity-card">
+        <div className="form-brand">Create Activity</div>
+        <h2 className="form-title">New Activity</h2>
+        <p className="form-subtitle">Define activity details, schedule, and marks breakdown.</p>
 
-      <form onSubmit={create} className="create-form">
+        <form onSubmit={create} className="create-form">
         <div className="form-row">
           <label>Activity Name</label>
           <input
@@ -223,37 +226,36 @@ function CreateActivity() {
           <div className="form-row">
             <label>Marks Breakdown (optional)</label>
 
-            {markSubdivisions.map((row, idx) => (
-              <div
-                key={idx}
-                style={{ display: "flex", gap: 8, marginBottom: 8 }}
-              >
-                <input
-                  placeholder="Subtopic / Component"
-                  value={row.title}
-                  onChange={(e) =>
-                    updateSubdivision(idx, "title", e.target.value)
-                  }
-                />
-                <input
-                  type="number"
-                  min="1"
-                  placeholder="Marks"
-                  value={row.marks}
-                  onChange={(e) =>
-                    updateSubdivision(idx, "marks", e.target.value)
-                  }
-                  style={{ width: 100 }}
-                />
-                {markSubdivisions.length > 1 && (
-                  <button type="button" onClick={() => removeSubdivision(idx)}>
-                    ❌
-                  </button>
-                )}
-              </div>
-            ))}
+            <div className="breakdown-list">
+              {markSubdivisions.map((row, idx) => (
+                <div key={idx} className="breakdown-row">
+                  <input
+                    placeholder="Subtopic / Component"
+                    value={row.title}
+                    onChange={(e) =>
+                      updateSubdivision(idx, "title", e.target.value)
+                    }
+                  />
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="Marks"
+                    value={row.marks}
+                    onChange={(e) =>
+                      updateSubdivision(idx, "marks", e.target.value)
+                    }
+                    className="marks-input"
+                  />
+                  {markSubdivisions.length > 1 && (
+                    <button type="button" className="btn-remove" onClick={() => removeSubdivision(idx)}>
+                      ×
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
 
-            <button type="button" onClick={addSubdivision}>
+            <button type="button" className="btn btn-outline" onClick={addSubdivision}>
               + Add Subdivision
             </button>
 
@@ -264,13 +266,14 @@ function CreateActivity() {
           </div>
         )}
 
-        <div style={{ marginTop: 15, display: "flex", gap: 12 }}>
-          <button type="submit">Create Activity</button>
-          <button type="button" onClick={() => navigate("/activities")}>
+        <div className="form-actions">
+          <button type="submit" className="btn btn-primary">Create Activity</button>
+          <button type="button" className="btn btn-outline" onClick={() => navigate("/activities")}>
             Cancel
           </button>
         </div>
       </form>
+      </div>
     </div>
   );
 }

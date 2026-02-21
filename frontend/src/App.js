@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
+import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 import HomePage from "./pages/HomePage";
@@ -26,26 +25,10 @@ import HODDashboard from "./pages/HODDashboard";
 import HODActivityList from "./pages/HODActivityList";
 
 function App() {
-  const [backendStatus, setBackendStatus] = useState("Checking backend...");
-
-
-  const backendURL = process.env.REACT_APP_API_URL || "http://localhost:5000";
-
-  useEffect(() => {
-    axios
-      .get(`${backendURL}/api/auth/health`)
-      .then((res) => setBackendStatus(res.data.message))
-      .catch(() => setBackendStatus("❌ Could not connect to backend"));
-  }, [backendURL]);
-
   return (
     <Router>
       <Header />
       <div className="app-container">
-        <div style={{ textAlign: "left" }}>
-          <h3 className="muted">Backend Status: {backendStatus}</h3>
-        </div>
-
         {/* Routes */}
         <Routes>
           <Route path="/" element={<HomePage />} />

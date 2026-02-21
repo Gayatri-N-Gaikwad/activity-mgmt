@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import api from "../services/api";
+import { Link, useNavigate } from "react-router-dom";
 
 function RegisterPage() {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -19,50 +21,82 @@ function RegisterPage() {
     try {
       await api.post("/auth/register", formData);
       setMessage("✅ Registered successfully! Redirecting to login...");
-      setTimeout(() => (window.location.href = "/login"), 1500);
+      setTimeout(() => navigate("/login"), 1500);
     } catch (err) {
       setMessage("❌ Registration failed (maybe email already exists)");
     }
   };
 
   return (
-    <div style={{ textAlign: "center", marginTop: "50px" }}>
-      <h2>Register</h2>
-      <form onSubmit={handleRegister}>
-        <input
-          name="name"
-          placeholder="Name"
-          value={formData.name}
-          onChange={handleChange}
-          required
-        /><br /><br />
-        <input
-          name="email"
-          type="email"
-          placeholder="Email"
-          value={formData.email}
-          onChange={handleChange}
-          required
-        /><br /><br />
-        <input
-          name="password"
-          type="password"
-          placeholder="Password"
-          value={formData.password}
-          onChange={handleChange}
-          required
-        /><br /><br />
-        <select name="role" value={formData.role} onChange={handleChange}>
-          <option value="Faculty">Faculty</option>
-          <option value="Coordinator">Coordinator</option>
-          <option value="HOD">HOD</option>
-        </select><br /><br />
-        <button type="submit">Register</button>
-      </form>
-      <p>{message}</p>
-      <p>
-        Already have an account? <a href="/login">Login</a>
-      </p>
+    <div className="auth-page">
+      <div className="auth-card">
+        <div className="auth-brand">Faculty Portal</div>
+        <h2 className="auth-title">Create account</h2>
+        <p className="auth-subtitle">Register once to access your dashboard and activities.</p>
+
+        <form className="auth-form" onSubmit={handleRegister}>
+          <div className="auth-field">
+            <label htmlFor="name">Full name</label>
+            <input
+              id="name"
+              name="name"
+              placeholder="Enter full name"
+              value={formData.name}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="auth-field">
+            <label htmlFor="email">Email</label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="faculty@example.com"
+              value={formData.email}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="auth-field">
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Create password"
+              value={formData.password}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="auth-field">
+            <label htmlFor="role">Role</label>
+            <select id="role" name="role" value={formData.role} onChange={handleChange}>
+              <option value="Faculty">Faculty</option>
+              <option value="Coordinator">Coordinator</option>
+              <option value="HOD">HOD</option>
+            </select>
+          </div>
+
+          <button className="btn btn-primary auth-submit" type="submit">
+            Register
+          </button>
+        </form>
+
+        {message && (
+          <p className={`auth-message ${message.includes("❌") ? "error" : "success"}`}>
+            {message}
+          </p>
+        )}
+
+        <p className="auth-footer">
+          Already have an account? <Link to="/login">Login</Link>
+        </p>
+      </div>
     </div>
   );
 }

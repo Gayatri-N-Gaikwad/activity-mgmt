@@ -134,9 +134,12 @@ function ActivityList() {
   }
 
   return (
-    <div className="card">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2>Activities</h2>
+    <div className="card activities-card">
+      <div className="activities-header">
+        <div>
+          <h2>Activities</h2>
+          <p className="muted">Track, manage and update all faculty activities in one table.</p>
+        </div>
 
         {["faculty", "coordinator", "hod"].includes(role) && (
           <Link to="/activity/create" className="btn btn-primary" style={{ textDecoration: "none" }}>
@@ -145,22 +148,26 @@ function ActivityList() {
         )}
       </div>
 
-      <div style={{ marginTop: 16 }}>
-        <table>
+      <div className="activities-table-wrap" style={{ marginTop: 16 }}>
+        <table className="activities-table">
           <thead>
             <tr>
               <th className="col-name">Name</th>
               <th className="col-desc">Description</th>
+              <th className="col-rubric">Rubric Criteria</th>
               <th className="col-schedule">Schedule Date</th>
               <th className="col-status">Status</th>
-              <th className="col-actions">Actions</th>
+              <th className="col-action-edit">Edit</th>
+              <th className="col-action-marks">Marks</th>
+              <th className="col-action-download">Download</th>
+              <th className="col-action-delete">Delete</th>
             </tr>
           </thead>
 
           <tbody>
             {activities.length === 0 ? (
               <tr>
-                <td colSpan="5" style={{ textAlign: "center" }}>
+                <td colSpan="9" style={{ textAlign: "center" }}>
                   No Activities Found
                 </td>
               </tr>
@@ -170,7 +177,7 @@ function ActivityList() {
                   <td className="col-name">
                     <Link
                       to={`/activity/details/${act._id}`}
-                      style={{ color: "#007bff", textDecoration: "none", fontWeight: "bold" }}
+                      className="activity-name-link"
                     >
                       {act.name}
                     </Link>
@@ -213,12 +220,13 @@ function ActivityList() {
                       </>
                     )}
 
-                    {act.rubric && act.rubric.length > 0 && (
-                      <div style={{ marginTop: 6, color: "#444", fontSize: 13 }}>
-                        <strong>Rubric:</strong>{" "}
-                        {act.rubric.map((r) => `${r.name} ${r.maxMarks}`).join(" + ")}
-                      </div>
-                    )}
+                  </td>
+
+                  <td className="col-rubric">
+                    <span className="rubric-count">{act.rubric?.length || 0} criteria</span>
+                    <div className="max-marks-display">
+                      {(act.rubric || []).reduce((sum, r) => sum + Number(r.maxMarks || 0), 0)} marks
+                    </div>
                   </td>
 
                   <td className="col-schedule">
@@ -231,10 +239,13 @@ function ActivityList() {
                         hour: "2-digit",
                         minute: "2-digit",
                       })
-                      : "Not Scheduled"}
+                      : <span className="not-scheduled">Not Scheduled</span>}
                   </td>
 
                   <td className="col-status">
+                    <span className={`status-pill ${String(act.status || "").toLowerCase()}`}>
+                      {String(act.status || "").replace("_", " ")}
+                    </span>
                     <select
                       className="status-select"
                       value={act.status}
@@ -252,33 +263,38 @@ function ActivityList() {
                     </select>
                   </td>
 
-                  <td className="actions-cell">
-                    <Link to={`/activity/edit/${act._id}`} className="muted" style={{ marginRight: 12 }}>
-                      <i className="fa fa-pen-to-square" style={{ marginRight: 6 }}></i>
-                      Edit
+                  <td className="col-action-edit">
+                    <Link to={`/activity/edit/${act._id}`} className="action-link-edit">
+                      <i className="fa fa-pen-to-square"></i>
                     </Link>
+                  </td>
 
-                    {(act.status === "Conducted" || act.status === "Marks_Updated") && (
-                      <Link to={`/marks/activity/${act._id}`} className="btn btn-success" style={{ marginRight: 12 }}>
-                        <i className="fa fa-plus" style={{ marginRight: 6 }}></i>
-                        {act.status === "Marks_Updated" ? "Edit Marks" : "Add Marks"}
+                  <td className="col-action-marks">
+                    {(act.status === "Conducted" || act.status === "Marks_Updated") ? (
+                      <Link to={`/marks/activity/${act._id}`} className="btn btn-success btn-icon">
+                        <i className="fa fa-list-check"></i>
                       </Link>
+                    ) : (
+                      <span className="action-placeholder">−</span>
                     )}
+                  </td>
 
-                    {act.status === "Marks_Updated" && (
+                  <td className="col-action-download">
+                    {act.status === "Marks_Updated" ? (
                       <button
                         onClick={() => downloadActivityMarks(act._id, act.name)}
-                        className="btn btn-info"
-                        style={{ marginRight: 12 }}
+                        className="btn btn-download btn-compact"
                       >
-                        <i className="fa fa-download" style={{ marginRight: 6 }}></i>
-                        Download
+                        <i className="fa fa-download"></i>
                       </button>
+                    ) : (
+                      <span className="action-placeholder">−</span>
                     )}
+                  </td>
 
-                    <button onClick={() => deleteActivity(act._id)} className="btn btn-danger">
-                      <i className="fa fa-trash" style={{ marginRight: 6 }}></i>
-                      Delete
+                  <td className="col-action-delete">
+                    <button onClick={() => deleteActivity(act._id)} className="btn btn-delete btn-compact">
+                      <i className="fa fa-trash"></i>
                     </button>
                   </td>
                 </tr>

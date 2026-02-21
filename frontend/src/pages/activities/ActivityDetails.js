@@ -1,19 +1,15 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import API from "../../services/api";
 import showToast from "../../utils/toast";
 
 function ActivityDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
   const [activity, setActivity] = useState(null);
   const [rubric, setRubric] = useState([]);
   const [loading, setLoading] = useState(true);
   const [markSubdivisions, setMarkSubdivisions] = useState([]);
-
-  // Check if coming from admin activities
-  const fromAdmin = location.state?.fromAdmin;
 
   useEffect(() => {
     const loadActivity = async () => {
@@ -51,21 +47,15 @@ function ActivityDetails() {
   }
 
   return (
-    <div className="card">
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 16,
-        }}
-      >
-        <h2>{activity.name}</h2>
-        <button onClick={() => navigate(-1)} className="btn btn-secondary">
-          <i className="fa fa-arrow-left" style={{ marginRight: 8 }}></i>
-          {fromAdmin ? "Back to Activities" : "Back to Activities"}
-        </button>
-      </div>
+    <div className="details-page-wrap">
+      <div className="details-card">
+        <div className="details-header">
+          <h2>{activity.name}</h2>
+          <button onClick={() => navigate(-1)} className="btn btn-outline">
+            <i className="fa fa-arrow-left" style={{ marginRight: 8 }}></i>
+            Back to Activities
+          </button>
+        </div>
 
       <div style={{ marginBottom: 24 }}>
         <h3>Description</h3>
@@ -307,6 +297,7 @@ function ActivityDetails() {
     </small>
   </div>
 )}
+)}      </div>
     </div>
   );
 }
