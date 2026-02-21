@@ -200,8 +200,7 @@ function AddMarks() {
     if (violations.length) {
       showToast(
         "error",
-        `Marks exceed allowed values:\n${violations.slice(0, 3).join("\n")}${
-          violations.length > 3 ? "…" : ""
+        `Marks exceed allowed values:\n${violations.slice(0, 3).join("\n")}${violations.length > 3 ? "…" : ""
         }`,
       );
       return;
@@ -297,116 +296,138 @@ function AddMarks() {
   if (!activity) return <div>Activity not found</div>;
 
   return (
-    <div className="card">
-      <h2>Add Marks for: {activity.name}</h2>
-      <div style={{ marginBottom: 12 }}>
-        <input
-          type="file"
-          accept=".xlsx"
-          id="marksExcelInput"
-          style={{ display: "none" }}
-          onChange={handleExcelUpload}
-        />
+    <div className="create-activity-page">
+      <div className="create-activity-card" style={{ maxWidth: "1000px" }}>
+        <div className="form-brand">Add Marks</div>
+        <h2 className="form-title">Marks for: {activity.name}</h2>
+        <div style={{ marginBottom: 24, display: "flex", gap: "12px", alignItems: "center" }}>
+          <input
+            type="file"
+            accept=".xlsx"
+            id="marksExcelInput"
+            style={{ display: "none" }}
+            onChange={handleExcelUpload}
+          />
 
-        <button
-          className="btn btn-secondary"
-          disabled={uploading}
-          onClick={() => document.getElementById("marksExcelInput").click()}
-        >
-          {uploading ? "Uploading..." : "Upload Marks (Excel)"}
-        </button>
+          <button
+            className="btn btn-info"
+            disabled={uploading}
+            onClick={() => document.getElementById("marksExcelInput").click()}
+          >
+            <i className="fa fa-upload" style={{ marginRight: 8 }}></i>
+            {uploading ? "Uploading..." : "Upload Marks (Excel)"}
+          </button>
 
-        <a
-          href={`${API.defaults.baseURL}/marks/activity/${activityId}/template`}
-          className="btn btn-outline"
-          style={{ marginLeft: 10 }}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Download Template
-        </a>
-      </div>
+          <a
+            href={`${API.defaults.baseURL}/marks/activity/${activityId}/template`}
+            className="btn btn-outline"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <i className="fa fa-download" style={{ marginRight: 8 }}></i>
+            Download Template
+          </a>
+        </div>
 
-      {students.length === 0 ? (
-        <p>No students enrolled for this activity.</p>
-      ) : (
-        <table className="marks-table">
-          <thead>
-            <tr>
-              <th>Student</th>
-              {activity.rubric.map((r) => (
-                <th key={r._id}>
-                  {r.name} (out of {r.maxMarks})
-                </th>
-              ))}
-              <th>Attendance</th>
-            </tr>
-          </thead>
-          <tbody>
-            {students.map((student) => {
-              const data = marksData[student._id];
-              if (!data) return null;
-
-              return (
-                <tr key={student._id}>
-                  <td>
-                    {student.name} ({student.rollNumber})
-                  </td>
-                  {data.rubricMarks.map((r, idx) => (
-                    <td key={r.criteriaId}>
-                      <input
-                        type="number"
-                        value={r.marks}
-                        onChange={(e) =>
-                          handleRubricChange(student._id, idx, e.target.value)
-                        }
-                        min="0"
-                        max={r.maxMarks}
-                        disabled={data.attendance === "Absent" || uploading}
-                        style={{
-                          width: 60,
-                          opacity:
-                            data.attendance === "Absent" || uploading ? 0.5 : 1,
-                          cursor:
-                            data.attendance === "Absent" || uploading
-                              ? "not-allowed"
-                              : "auto",
-                        }}
-                      />
-                    </td>
+        {students.length === 0 ? (
+          <p className="muted" style={{ padding: "20px", textAlign: "center", background: "#f8fbff", borderRadius: "8px" }}>No students enrolled for this activity.</p>
+        ) : (
+          <div className="subject-table-wrap">
+            <table className="subject-table" style={{ width: "100%", minWidth: "auto" }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: "left" }}>Student</th>
+                  {activity.rubric.map((r) => (
+                    <th key={r._id}>
+                      {r.name} <div className="muted" style={{ fontSize: "12px", fontWeight: "normal" }}>(out of {r.maxMarks})</div>
+                    </th>
                   ))}
-                  <td>
-                    <select
-                      value={data.attendance}
-                      onChange={(e) =>
-                        handleAttendanceChange(student._id, e.target.value)
-                      }
-                      style={{ width: 100 }}
-                    >
-                      <option value="Present">Present</option>
-                      <option value="Absent">Absent</option>
-                    </select>
-                  </td>
+                  <th>Attendance</th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      )}
-      <button
-        className="btn btn-primary"
-        onClick={submitAllMarks}
-        style={{ marginTop: 12 }}
-      >
-        Save All Marks
-      </button>
-      <button
-        className="btn btn-outline"
-        onClick={() => navigate("/activities")}
-        style={{ marginTop: 12, marginLeft: 10 }}
-      >
-        Back to Activities
-      </button>
+              </thead>
+              <tbody>
+                {students.map((student) => {
+                  const data = marksData[student._id];
+                  if (!data) return null;
+
+                  return (
+                    <tr key={student._id}>
+                      <td style={{ textAlign: "left" }}>
+                        <strong>{student.name}</strong> <span className="muted" style={{ fontSize: "13px" }}>({student.rollNumber})</span>
+                      </td>
+                      {data.rubricMarks.map((r, idx) => (
+                        <td key={r.criteriaId}>
+                          <input
+                            type="number"
+                            value={r.marks}
+                            onChange={(e) =>
+                              handleRubricChange(student._id, idx, e.target.value)
+                            }
+                            min="0"
+                            max={r.maxMarks}
+                            disabled={data.attendance === "Absent" || uploading}
+                            style={{
+                              width: 80,
+                              padding: "8px",
+                              margin: "0 auto",
+                              display: "block",
+                              textAlign: "center",
+                              borderRadius: "6px",
+                              border: "1px solid #dbe4f1",
+                              opacity:
+                                data.attendance === "Absent" || uploading ? 0.5 : 1,
+                              cursor:
+                                data.attendance === "Absent" || uploading
+                                  ? "not-allowed"
+                                  : "auto",
+                            }}
+                          />
+                        </td>
+                      ))}
+                      <td>
+                        <select
+                          value={data.attendance}
+                          onChange={(e) =>
+                            handleAttendanceChange(student._id, e.target.value)
+                          }
+                          className="status-select"
+                          style={{
+                            margin: "0 auto",
+                            display: "block",
+                            background: data.attendance === "Present" ? "#e8f9ef" : "#fce8e8",
+                            color: data.attendance === "Present" ? "#147a4c" : "#c9404d",
+                            border: "none",
+                            fontWeight: "bold"
+                          }}
+                        >
+                          <option value="Present">Present</option>
+                          <option value="Absent">Absent</option>
+                        </select>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="form-actions" style={{ marginTop: 24, display: "flex", gap: "12px" }}>
+          <button
+            className="btn btn-primary"
+            onClick={submitAllMarks}
+            style={{ padding: "10px 20px" }}
+          >
+            Save All Marks
+          </button>
+          <button
+            className="btn btn-outline"
+            onClick={() => navigate("/activities")}
+            style={{ padding: "10px 20px" }}
+          >
+            Back to Activities
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

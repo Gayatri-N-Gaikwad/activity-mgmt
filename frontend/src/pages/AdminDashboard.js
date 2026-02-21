@@ -297,368 +297,448 @@ function AdminDashboard() {
 
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h1>Admin Dashboard</h1>
-
-      {/* Navigation */}
-      <div style={{ marginBottom: "20px" }}>
-        <button onClick={() => {
-          setActiveTab("assignments");
-          setSelectedYear(null);
-          setAllocationData([]);
-        }}>
-          Subject Allocations
-        </button>{" "}
-        <button onClick={() => setActiveTab("addClass")}>Add Class</button>{" "}
-        <button onClick={() => setActiveTab("addSubject")}>Add Subject</button>{" "}
-        <button onClick={() => setActiveTab("assign")}>Assign Faculty</button> {" "}
-        <button onClick={() => setActiveTab("uploadStudents")}>
-          Upload Students
-        </button>
-        <button onClick={() => setActiveTab("academicYear")}>
-          Academic Year
-        </button>
+    <div className="admin-dashboard-page" style={{ padding: "0 24px" }}>
+      <div className="marquee-container">
+        <div className="marquee-text">
+          🚀 Welcome to the <span className="marquee-highlight">Admin Dashboard</span>! Quick Access: Manage classes, add subjects, allocate faculty assignments, upload mass student data, and configure the academic year seamlessly. ⚙️
+        </div>
       </div>
 
-      <hr />
+      <div className="admin-layout">
 
-      {/* Content rendering (same as before) */}
-      {activeTab === "assignments" && (
-        <>
-          {!selectedYear ? (
-            <>
-              <h2>Subject Allocations</h2>
-              <div style={{ marginTop: "20px" }}>
-                <button
-                  onClick={() => setSelectedYear('SY')}
-                >
-                  Second Year
-                </button>{" "}
-                <button
-                  onClick={() => setSelectedYear('TE')}
-                >
-                  Third Year
-                </button>{" "}
-                <button
-                  onClick={() => setSelectedYear('BE')}
-                >
-                  Fourth Year
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={() => {
-                  setSelectedYear(null);
-                  setAllocationData([]);
-                }}
-              >
-                ← Back
-              </button>
-              <h2>
-                Subject Allocations - {
-                  selectedYear === 'SY' ? 'Second Year' :
-                    selectedYear === 'TE' ? 'Third Year' :
-                      'Fourth Year'
-                }
-              </h2>
-              <table border="1" cellPadding="8" style={{ marginTop: "20px", width: "100%" }}>
-                <thead>
-                  <tr>
-                    <th>Subject</th>
-                    <th>Div 9</th>
-                    <th>Div 10</th>
-                    <th>Div 11</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {allocationData.length > 0 ? (
-                    allocationData.map((item) => (
-                      <tr key={item.subjectId}>
-                        <td>
-                          <strong>{item.subjectName}</strong>
-                          <br />
-                          <small style={{ color: "gray" }}>{item.subjectCode}</small>
-                        </td>
-                        <td
-                          style={{
-                            cursor: item.div9 && item.div9 !== '-' ? 'pointer' : 'default',
-                            color: item.div9 && item.div9 !== '-' ? 'blue' : 'inherit',
-                            textDecoration: item.div9 && item.div9 !== '-' ? 'underline' : 'none'
-                          }}
-                          onClick={() => item.div9 && item.div9 !== '-' && item.div9Info && handleFacultyClick(
-                            item.div9,
-                            item.subjectId,
-                            item.subjectName,
-                            item.div9Info.facultyId,
-                            item.div9Info.division,
-                            selectedYear
-                          )}
-                        >
-                          {item.div9 || '-'}
-                        </td>
-                        <td
-                          style={{
-                            cursor: item.div10 && item.div10 !== '-' ? 'pointer' : 'default',
-                            color: item.div10 && item.div10 !== '-' ? 'blue' : 'inherit',
-                            textDecoration: item.div10 && item.div10 !== '-' ? 'underline' : 'none'
-                          }}
-                          onClick={() => item.div10 && item.div10 !== '-' && item.div10Info && handleFacultyClick(
-                            item.div10,
-                            item.subjectId,
-                            item.subjectName,
-                            item.div10Info.facultyId,
-                            item.div10Info.division,
-                            selectedYear
-                          )}
-                        >
-                          {item.div10 || '-'}
-                        </td>
-                        <td
-                          style={{
-                            cursor: item.div11 && item.div11 !== '-' ? 'pointer' : 'default',
-                            color: item.div11 && item.div11 !== '-' ? 'blue' : 'inherit',
-                            textDecoration: item.div11 && item.div11 !== '-' ? 'underline' : 'none'
-                          }}
-                          onClick={() => item.div11 && item.div11 !== '-' && item.div11Info && handleFacultyClick(
-                            item.div11,
-                            item.subjectId,
-                            item.subjectName,
-                            item.div11Info.facultyId,
-                            item.div11Info.division,
-                            selectedYear
-                          )}
-                        >
-                          {item.div11 || '-'}
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="4" style={{ textAlign: "center" }}>
-                        No subjects found for this year
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </>
-          )}
-        </>
-      )}
-
-      {activeTab === "addClass" && (
-        <>
-          <h2>Add Class</h2>
-
-          {/* YEAR */}
-          <select
-            value={classData.year}
-            onChange={(e) =>
-              setClassData({ ...classData, year: e.target.value })
-            }
+        {/* Navigation Sidebar */}
+        <div className="admin-sidebar" style={{ border: "2px solid #e8eef7" }}>
+          <h3 style={{ margin: "4px 0 16px 8px", fontSize: "14px", textTransform: "uppercase", letterSpacing: "1px", color: "#8b9db1", fontWeight: "700" }}>
+            Admin Tools
+          </h3>
+          <button
+            className={`admin-nav-btn ${activeTab === "assignments" ? "active" : ""}`}
+            onClick={() => {
+              setActiveTab("assignments");
+              setSelectedYear(null);
+              setAllocationData([]);
+            }}
           >
-            <option value="">Select Year</option>
-            <option value="SY">Second Year (SY)</option>
-            <option value="TE">Third Year (TE)</option>
-            <option value="BE">Fourth Year (BE)</option>
-          </select>
-
-          <br /><br />
-
-          {/* DIVISION */}
-          <select
-            value={classData.division}
-            onChange={(e) =>
-              setClassData({ ...classData, division: e.target.value })
-            }
-          >
-            <option value="">Select Division</option>
-            <option value="9">Div 9</option>
-            <option value="10">Div 10</option>
-            <option value="11">Div 11</option>
-          </select>
-
-          <br /><br />
-
-          <button onClick={handleAddClass}>Add Class</button>
-        </>
-      )}
-
-
-      {activeTab === "addSubject" && (
-        <>
-          <h2>Add Subject</h2>
-          <input
-            type="text"
-            placeholder="Subject Name"
-            value={subject.name}
-            onChange={(e) => setSubject({ ...subject, name: e.target.value })}
-          />
-          <br />
-          <br />
-          <input
-            type="text"
-            placeholder="Subject Code"
-            value={subject.code}
-            onChange={(e) => setSubject({ ...subject, code: e.target.value })}
-          />
-          <br />
-          <br />
-          <button onClick={handleAddSubject}>Add Subject</button>
-        </>
-      )}
-
-      {/* =======================
-         ASSIGN FACULTY (DROPDOWNS)
-      ======================= */}
-      {activeTab === "assign" && (
-        <>
-          <h2>Assign Subject & Class to Faculty</h2>
-
-          <select
-            value={assignData.facultyId}
-            onChange={(e) =>
-              setAssignData({ ...assignData, facultyId: e.target.value })
-            }
-          >
-            <option value="">Select Faculty</option>
-            {faculties.map((f) => (
-              <option key={f._id} value={f._id}>
-                {f.name} ({f.email})
-              </option>
-            ))}
-          </select>
-
-          <br />
-          <br />
-
-          <select
-            value={assignData.subjectId}
-            onChange={(e) =>
-              setAssignData({ ...assignData, subjectId: e.target.value })
-            }
-          >
-            <option value="">Select Subject</option>
-            {subjects.map((s) => (
-              <option key={s._id} value={s._id}>
-                {s.name} ({s.code})
-              </option>
-            ))}
-          </select>
-
-          <br />
-          <br />
-
-          <select
-            value={assignData.classId}
-            onChange={(e) =>
-              setAssignData({ ...assignData, classId: e.target.value })
-            }
-          >
-            <option value="">Select Class</option>
-            {classes.map((c) => (
-              <option key={c._id} value={c._id}>
-                {c.year} - Div {c.division}
-              </option>
-            ))}
-          </select>
-          <br />
-          <br />
-
-          <button onClick={handleAssign}>Assign</button>
-        </>
-      )}
-
-
-      {/* =======================
-         UPLOAD STUDENTS (CLASS DROPDOWN)
-      ======================= */}
-      {activeTab === "uploadStudents" && (
-        <>
-          <h2>Upload Students (Excel)</h2>
-
-          <select
-            value={studentClassId}
-            onChange={(e) => setStudentClassId(e.target.value)}
-          >
-            <option value="">Select Class</option>
-            {classes.map((c) => (
-              <option key={c._id} value={c._id}>
-                {c.year} - Div {c.division}
-              </option>
-            ))}
-          </select>
-
-
-          <br /><br />
-
-          <input type="file" accept=".xlsx, .xls" onChange={(e) => setStudentFile(e.target.files[0])} />
-          <br /><br />
-
-          <button onClick={handleStudentUpload}>Upload Students</button>
-
-          <p style={{ marginTop: "10px", fontSize: "14px" }}>
-            Excel format: <b>rollNumber | name</b>
-          </p>
-        </>
-      )}
-
-      {!activeAcademicYear && (
-        <p style={{ color: "gray", fontStyle: "italic" }}>
-          No academic year has been set yet.
-        </p>
-      )}
-      {activeTab === "academicYear" && (
-        <>
-          <h2>Academic Year</h2>
-
-          {activeAcademicYear && (
-            <p>
-              <b>Current Academic Year:</b> {activeAcademicYear}
-            </p>
-          )}
-
-          <input
-            type="text"
-            placeholder="e.g. 2024-25"
-            value={academicYear}
-            onChange={(e) => setAcademicYear(e.target.value)}
-          />
-
-          <br /><br />
-
-          {/* ✅ Semester Start Date */}
-          <label>Semester Start Date</label><br />
-          <input
-            type="date"
-            value={semesterStartDate}
-            onChange={(e) => setSemesterStartDate(e.target.value)}
-          />
-
-          <br /><br />
-
-          {/* ✅ Semester End Date */}
-          <label>Semester End Date</label><br />
-          <input
-            type="date"
-            value={semesterEndDate}
-            onChange={(e) => setSemesterEndDate(e.target.value)}
-          />
-
-          <br /><br />
-
-          <button onClick={handleSetAcademicYear}>
-            Set Academic Year
+            <i className="fa fa-table"></i>
+            <span>Subject Allocations</span>
           </button>
 
-          <p style={{ marginTop: "10px", fontSize: "14px", color: "gray" }}>
-            This academic year and semester duration will be used across the system.
-          </p>
-        </>
-      )}
+          <button
+            className={`admin-nav-btn ${activeTab === "addClass" ? "active" : ""}`}
+            onClick={() => setActiveTab("addClass")}
+          >
+            <i className="fa fa-users-class"></i>
+            <span>Add Class</span>
+          </button>
 
+          <button
+            className={`admin-nav-btn ${activeTab === "addSubject" ? "active" : ""}`}
+            onClick={() => setActiveTab("addSubject")}
+          >
+            <i className="fa fa-book"></i>
+            <span>Add Subject</span>
+          </button>
+
+          <button
+            className={`admin-nav-btn ${activeTab === "assign" ? "active" : ""}`}
+            onClick={() => setActiveTab("assign")}
+          >
+            <i className="fa fa-user-tie"></i>
+            <span>Assign Faculty</span>
+          </button>
+
+          <hr style={{ border: "none", borderTop: "1px dashed #e2e8f0", margin: "12px 0", opacity: 0.6 }} />
+
+          <button
+            className={`admin-nav-btn ${activeTab === "uploadStudents" ? "active" : ""}`}
+            onClick={() => setActiveTab("uploadStudents")}
+          >
+            <i className="fa fa-file-excel"></i>
+            <span>Upload Students</span>
+          </button>
+
+          <button
+            className={`admin-nav-btn ${activeTab === "academicYear" ? "active" : ""}`}
+            onClick={() => setActiveTab("academicYear")}
+          >
+            <i className="fa fa-calendar-alt"></i>
+            <span>Academic Year</span>
+          </button>
+        </div>
+
+        {/* Content Area */}
+        <div className="admin-content-area" style={{ flex: 1 }}>
+          {activeTab === "assignments" && (
+            <div className="card">
+              {!selectedYear ? (
+                <>
+                  <div className="activities-header">
+                    <div>
+                      <h2 style={{ marginTop: 0 }}>Subject Allocations</h2>
+                      <p className="muted">Select a year to view the mapped assignments to faculty.</p>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: "12px", marginTop: "24px" }}>
+                    <button className="btn btn-outline" style={{ flex: 1, padding: "24px 16px", fontSize: "16px" }} onClick={() => setSelectedYear('SY')}>
+                      <strong>Second Year</strong> (SY)
+                    </button>
+                    <button className="btn btn-outline" style={{ flex: 1, padding: "24px 16px", fontSize: "16px" }} onClick={() => setSelectedYear('TE')}>
+                      <strong>Third Year</strong> (TE)
+                    </button>
+                    <button className="btn btn-outline" style={{ flex: 1, padding: "24px 16px", fontSize: "16px" }} onClick={() => setSelectedYear('BE')}>
+                      <strong>Fourth Year</strong> (BE)
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="activities-header" style={{ marginBottom: "20px" }}>
+                    <div>
+                      <h2 style={{ marginTop: 0 }}>
+                        Subject Allocations - {
+                          selectedYear === 'SY' ? 'Second Year' :
+                            selectedYear === 'TE' ? 'Third Year' : 'Fourth Year'
+                        }
+                      </h2>
+                      <p className="muted">Click on a faculty name to view their activities.</p>
+                    </div>
+                    <button className="btn btn-outline" onClick={() => { setSelectedYear(null); setAllocationData([]); }}>
+                      <i className="fa fa-arrow-left" style={{ marginRight: "6px" }}></i> Back
+                    </button>
+                  </div>
+
+                  <div className="subject-table-wrap">
+                    <table className="subject-table activities-table" style={{ width: "100%", textAlign: "left" }}>
+                      <thead>
+                        <tr>
+                          <th style={{ textAlign: "left" }}>Subject</th>
+                          <th style={{ textAlign: "center" }}>Div 9</th>
+                          <th style={{ textAlign: "center" }}>Div 10</th>
+                          <th style={{ textAlign: "center" }}>Div 11</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {allocationData.length > 0 ? (
+                          allocationData.map((item) => (
+                            <tr key={item.subjectId}>
+                              <td style={{ textAlign: "left" }}>
+                                <strong>{item.subjectName}</strong>
+                                <div className="muted" style={{ fontSize: "13px", marginTop: "4px" }}>{item.subjectCode}</div>
+                              </td>
+                              <td
+                                style={{
+                                  textAlign: "center",
+                                  cursor: item.div9 && item.div9 !== '-' ? 'pointer' : 'default',
+                                  fontWeight: item.div9 && item.div9 !== '-' ? '600' : 'normal',
+                                  color: item.div9 && item.div9 !== '-' ? 'var(--primary)' : 'inherit',
+                                }}
+                                onClick={() => item.div9 && item.div9 !== '-' && item.div9Info && handleFacultyClick(
+                                  item.div9, item.subjectId, item.subjectName, item.div9Info.facultyId, item.div9Info.division, selectedYear
+                                )}
+                              >
+                                {item.div9 && item.div9 !== '-' ? <span className="action-link-edit">{item.div9}</span> : <span className="muted">-</span>}
+                              </td>
+                              <td
+                                style={{
+                                  textAlign: "center",
+                                  cursor: item.div10 && item.div10 !== '-' ? 'pointer' : 'default',
+                                  fontWeight: item.div10 && item.div10 !== '-' ? '600' : 'normal',
+                                  color: item.div10 && item.div10 !== '-' ? 'var(--primary)' : 'inherit',
+                                }}
+                                onClick={() => item.div10 && item.div10 !== '-' && item.div10Info && handleFacultyClick(
+                                  item.div10, item.subjectId, item.subjectName, item.div10Info.facultyId, item.div10Info.division, selectedYear
+                                )}
+                              >
+                                {item.div10 && item.div10 !== '-' ? <span className="action-link-edit">{item.div10}</span> : <span className="muted">-</span>}
+                              </td>
+                              <td
+                                style={{
+                                  textAlign: "center",
+                                  cursor: item.div11 && item.div11 !== '-' ? 'pointer' : 'default',
+                                  fontWeight: item.div11 && item.div11 !== '-' ? '600' : 'normal',
+                                  color: item.div11 && item.div11 !== '-' ? 'var(--primary)' : 'inherit',
+                                }}
+                                onClick={() => item.div11 && item.div11 !== '-' && item.div11Info && handleFacultyClick(
+                                  item.div11, item.subjectId, item.subjectName, item.div11Info.facultyId, item.div11Info.division, selectedYear
+                                )}
+                              >
+                                {item.div11 && item.div11 !== '-' ? <span className="action-link-edit">{item.div11}</span> : <span className="muted">-</span>}
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="4" style={{ textAlign: "center", padding: "24px" }} className="muted">
+                              No subjects found for this year
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {activeTab === "addClass" && (
+            <div className="card create-activity-card" style={{ maxWidth: "600px", margin: "0 auto" }}>
+              <div className="form-brand">Create</div>
+              <h2 className="form-title">Add Class</h2>
+              <p className="form-subtitle">Register a new class by defining its year and division.</p>
+
+              <div className="create-form">
+                <div className="form-row">
+                  <label>Year</label>
+                  <select
+                    value={classData.year}
+                    onChange={(e) => setClassData({ ...classData, year: e.target.value })}
+                  >
+                    <option value="">-- Select Year --</option>
+                    <option value="SY">Second Year (SY)</option>
+                    <option value="TE">Third Year (TE)</option>
+                    <option value="BE">Fourth Year (BE)</option>
+                  </select>
+                </div>
+
+                <div className="form-row">
+                  <label>Division</label>
+                  <select
+                    value={classData.division}
+                    onChange={(e) => setClassData({ ...classData, division: e.target.value })}
+                  >
+                    <option value="">-- Select Division --</option>
+                    <option value="9">Div 9</option>
+                    <option value="10">Div 10</option>
+                    <option value="11">Div 11</option>
+                  </select>
+                </div>
+
+                <div className="form-actions" style={{ marginTop: "24px" }}>
+                  <button className="btn btn-primary" onClick={handleAddClass}>Add Class</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "addSubject" && (
+            <div className="card create-activity-card" style={{ maxWidth: "600px", margin: "0 auto" }}>
+              <div className="form-brand">Create</div>
+              <h2 className="form-title">Add Subject</h2>
+              <p className="form-subtitle">Register a new curriculum subject into the system.</p>
+
+              <div className="create-form">
+                <div className="form-row">
+                  <label>Subject Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Data Structures"
+                    value={subject.name}
+                    onChange={(e) => setSubject({ ...subject, name: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-row">
+                  <label>Subject Code</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. CS201"
+                    value={subject.code}
+                    onChange={(e) => setSubject({ ...subject, code: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-actions" style={{ marginTop: "24px" }}>
+                  <button className="btn btn-primary" onClick={handleAddSubject}>Add Subject</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "assign" && (
+            <div className="card create-activity-card" style={{ maxWidth: "600px", margin: "0 auto" }}>
+              <div className="form-brand">Allocation</div>
+              <h2 className="form-title">Assign Faculty</h2>
+              <p className="form-subtitle">Map a faculty member to a specific subject and class division.</p>
+
+              <div className="create-form">
+                <div className="form-row">
+                  <label>Select Faculty</label>
+                  <select
+                    value={assignData.facultyId}
+                    onChange={(e) => setAssignData({ ...assignData, facultyId: e.target.value })}
+                  >
+                    <option value="">-- Select Faculty --</option>
+                    {faculties.map((f) => (
+                      <option key={f._id} value={f._id}>
+                        {f.name} ({f.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-row">
+                  <label>Select Subject</label>
+                  <select
+                    value={assignData.subjectId}
+                    onChange={(e) => setAssignData({ ...assignData, subjectId: e.target.value })}
+                  >
+                    <option value="">-- Select Subject --</option>
+                    {subjects.map((s) => (
+                      <option key={s._id} value={s._id}>
+                        {s.name} ({s.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-row">
+                  <label>Select Class</label>
+                  <select
+                    value={assignData.classId}
+                    onChange={(e) => setAssignData({ ...assignData, classId: e.target.value })}
+                  >
+                    <option value="">-- Select Class --</option>
+                    {classes.map((c) => (
+                      <option key={c._id} value={c._id}>
+                        {c.year} - Div {c.division}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-actions" style={{ marginTop: "24px" }}>
+                  <button className="btn btn-primary" onClick={handleAssign}>Assign Faculty</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "uploadStudents" && (
+            <div className="card create-activity-card" style={{ maxWidth: "600px", margin: "0 auto" }}>
+              <div className="form-brand">Uploads</div>
+              <h2 className="form-title">Upload Students</h2>
+              <p className="form-subtitle">Bulk import students for a specific class using an Excel file.</p>
+
+              <div className="create-form">
+                <div className="form-row">
+                  <label>Select Class</label>
+                  <select
+                    value={studentClassId}
+                    onChange={(e) => setStudentClassId(e.target.value)}
+                  >
+                    <option value="">-- Select Class --</option>
+                    {classes.map((c) => (
+                      <option key={c._id} value={c._id}>
+                        {c.year} - Div {c.division}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-row">
+                  <label>Excel File</label>
+                  <div style={{ position: "relative" }}>
+                    <input
+                      type="file"
+                      accept=".xlsx, .xls"
+                      id="studentUploadInput"
+                      style={{ display: "none" }}
+                      onChange={(e) => setStudentFile(e.target.files[0])}
+                    />
+                    <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                      <button
+                        className="btn btn-outline"
+                        onClick={() => document.getElementById("studentUploadInput").click()}
+                        style={{ background: "#fbfdff" }}
+                      >
+                        <i className="fa fa-file-excel" style={{ marginRight: "8px" }}></i> Choose File
+                      </button>
+                      <span className="muted" style={{ fontSize: "14px", fontWeight: "600" }}>
+                        {studentFile ? studentFile.name : "No file selected"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="status-alert status-alert-warn" style={{ marginTop: "16px", display: "flex", gap: "10px", alignItems: "center" }}>
+                  <i className="fa fa-info-circle"></i>
+                  <span>Excel format should be: <b>rollNumber | name</b></span>
+                </div>
+
+                <div className="form-actions" style={{ marginTop: "24px" }}>
+                  <button className="btn btn-primary" onClick={handleStudentUpload} disabled={!studentFile || !studentClassId}>
+                    <i className="fa fa-upload" style={{ marginRight: "8px" }}></i> Upload Data
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "academicYear" && (
+            <div className="card create-activity-card" style={{ maxWidth: "600px", margin: "0 auto" }}>
+              <div className="form-brand">Setup</div>
+              <h2 className="form-title">Academic Year</h2>
+              <p className="form-subtitle">Configure the current academic year and semester dates.</p>
+
+              {!activeAcademicYear && (
+                <div className="status-alert status-alert-warn" style={{ marginBottom: "20px" }}>
+                  <i className="fa fa-exclamation-triangle" style={{ marginRight: "8px" }}></i> No academic year has been set yet.
+                </div>
+              )}
+
+              {activeAcademicYear && (
+                <div className="status-chip-wrap" style={{ marginBottom: "20px" }}>
+                  <span className="status-chip" style={{ background: "#eef5ff", color: "#114b8a", borderColor: "#c8def6" }}>
+                    <i className="fa fa-calendar-check" style={{ marginRight: "6px" }}></i>
+                    Current Academic Year: <strong>{activeAcademicYear}</strong>
+                  </span>
+                </div>
+              )}
+
+              <div className="create-form">
+                <div className="form-row">
+                  <label>Academic Year (e.g. 2024-25)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 2024-25"
+                    value={academicYear}
+                    onChange={(e) => setAcademicYear(e.target.value)}
+                  />
+                </div>
+
+                <div className="form-row">
+                  <label>Semester Start Date</label>
+                  <input
+                    type="date"
+                    value={semesterStartDate}
+                    onChange={(e) => setSemesterStartDate(e.target.value)}
+                  />
+                </div>
+
+                <div className="form-row">
+                  <label>Semester End Date</label>
+                  <input
+                    type="date"
+                    value={semesterEndDate}
+                    onChange={(e) => setSemesterEndDate(e.target.value)}
+                  />
+                </div>
+
+                <p className="muted" style={{ fontSize: "14px", marginTop: "8px" }}>
+                  This academic year and semester duration will be used strictly for scheduling logic across the system.
+                </p>
+
+                <div className="form-actions" style={{ marginTop: "24px" }}>
+                  <button className="btn btn-primary" onClick={handleSetAcademicYear}>
+                    <i className="fa fa-check" style={{ marginRight: "8px" }}></i> Set Academic Year
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

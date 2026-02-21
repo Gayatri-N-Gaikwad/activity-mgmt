@@ -6,7 +6,7 @@ import showToast from "../utils/toast";
 function HODActivityList() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  
+
   const facultyId = searchParams.get("facultyId");
   const subjectId = searchParams.get("subjectId");
   const year = searchParams.get("year");
@@ -54,216 +54,221 @@ function HODActivityList() {
     setSelectedActivity(null);
   };
 
-  if (loading) return <div style={{ padding: "20px" }}>Loading activities...</div>;
+  if (loading) return (
+    <div className="card" style={{ padding: "40px", textAlign: "center", margin: "24px" }}>
+      <i className="fa fa-spinner fa-spin" style={{ fontSize: "24px", color: "var(--primary)" }}></i>
+      <div style={{ marginTop: "16px", color: "var(--text-color)" }}>Loading activities...</div>
+    </div>
+  );
 
   if (selectedActivity) {
     // Activity Details View
     return (
-      <div style={{ padding: "20px" }}>
-        <button 
-          onClick={handleBackFromActivity}
-          style={{
-            padding: "8px 16px",
-            marginBottom: "20px",
-            cursor: "pointer"
-          }}
-        >
-          ← Back to Activities
-        </button>
-
-        <h2>{selectedActivity.name}</h2>
-
-        <div style={{ marginTop: "20px" }}>
-          <h3>Description</h3>
-          <p>{selectedActivity.description}</p>
+      <div className="card create-activity-card" style={{ maxWidth: "800px", margin: "24px auto" }}>
+        <div className="activities-header" style={{ marginBottom: "24px" }}>
+          <div>
+            <h2 className="form-title">{selectedActivity.name}</h2>
+            <p className="form-subtitle">Detailed view of the activity configuration and status.</p>
+          </div>
+          <button className="btn btn-outline" onClick={handleBackFromActivity}>
+            <i className="fa fa-arrow-left" style={{ marginRight: "8px" }}></i> Back
+          </button>
         </div>
 
-        <div style={{ marginTop: "20px" }}>
-          <h3>Details</h3>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <tbody>
-              <tr style={{ borderBottom: "1px solid #ddd" }}>
-                <td style={{ fontWeight: "bold", padding: "8px 0", width: "200px" }}>Status:</td>
-                <td style={{ padding: "8px 0" }}>{selectedActivity.status}</td>
-              </tr>
-              <tr style={{ borderBottom: "1px solid #ddd" }}>
-                <td style={{ fontWeight: "bold", padding: "8px 0" }}>Coordinator:</td>
-                <td style={{ padding: "8px 0" }}>{selectedActivity.coordinatorId?.name || 'N/A'}</td>
-              </tr>
-              {selectedActivity.assignmentId && (
-                <>
-                  <tr style={{ borderBottom: "1px solid #ddd" }}>
-                    <td style={{ fontWeight: "bold", padding: "8px 0" }}>Class:</td>
-                    <td style={{ padding: "8px 0" }}>
-                      {selectedActivity.assignmentId?.year && selectedActivity.assignmentId?.division
-                        ? `${selectedActivity.assignmentId.year}-${selectedActivity.assignmentId.division}`
-                        : 'N/A'}
-                    </td>
-                  </tr>
-                  <tr style={{ borderBottom: "1px solid #ddd" }}>
-                    <td style={{ fontWeight: "bold", padding: "8px 0" }}>Subject:</td>
-                    <td style={{ padding: "8px 0" }}>{selectedActivity.assignmentId.subjectId?.name || 'N/A'}</td>
-                  </tr>
-                </>
-              )}
-              <tr style={{ borderBottom: "1px solid #ddd" }}>
-                <td style={{ fontWeight: "bold", padding: "8px 0" }}>Scheduled Date:</td>
-                <td style={{ padding: "8px 0" }}>
-                  {selectedActivity.scheduleDate
-                    ? new Date(selectedActivity.scheduleDate).toLocaleString("en-GB")
-                    : "Not Scheduled"}
-                </td>
-              </tr>
-              <tr style={{ borderBottom: "1px solid #ddd" }}>
-                <td style={{ fontWeight: "bold", padding: "8px 0" }}>Created:</td>
-                <td style={{ padding: "8px 0" }}>
-                  {selectedActivity.createdAt
-                    ? new Date(selectedActivity.createdAt).toLocaleString("en-GB")
-                    : "N/A"}
-                </td>
-              </tr>
-              {selectedActivity.conductedConfirmation && (
-                <>
-                  <tr style={{ borderBottom: "1px solid #ddd" }}>
-                    <td style={{ fontWeight: "bold", padding: "8px 0" }}>Conducted On:</td>
-                    <td style={{ padding: "8px 0" }}>
-                      {new Date(selectedActivity.conductedConfirmation.confirmedAt).toLocaleString("en-GB")}
-                    </td>
-                  </tr>
-                  <tr style={{ borderBottom: "1px solid #ddd" }}>
-                    <td style={{ fontWeight: "bold", padding: "8px 0" }}>Conducted By:</td>
-                    <td style={{ padding: "8px 0" }}>{selectedActivity.conductedConfirmation.confirmedBy?.name || 'N/A'}</td>
-                  </tr>
-                  {selectedActivity.conductedConfirmation.notes && (
-                    <tr style={{ borderBottom: "1px solid #ddd" }}>
-                      <td style={{ fontWeight: "bold", padding: "8px 0" }}>Conducted Notes:</td>
-                      <td style={{ padding: "8px 0" }}>{selectedActivity.conductedConfirmation.notes}</td>
-                    </tr>
-                  )}
-                </>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {selectedActivity.modelAnswerFiles && selectedActivity.modelAnswerFiles.length > 0 && (
-          <div style={{ marginTop: "20px" }}>
-            <h3>Model Answer Files</h3>
-            <div>
-              {selectedActivity.modelAnswerFiles.map((file, index) => {
-                const originalFilename = file.split('/').pop() || `File ${index + 1}`;
-                const fileExtension = originalFilename.split('.').pop() || '';
-                const displayFilename = `ModelAns.${fileExtension}`;
-                const fileUrl = `http://localhost:5000${file}`;
-
-                return (
-                  <div key={index} style={{ marginBottom: "10px" }}>
-                    <strong>{displayFilename}</strong>
-                    <div style={{ marginTop: "5px" }}>
-                      <a href={fileUrl} target="_blank" rel="noopener noreferrer" style={{ marginRight: "10px" }}>
-                        View in New Tab
-                      </a>
-                      <a href={fileUrl} download={displayFilename}>
-                        Download
-                      </a>
-                    </div>
-                  </div>
-                );
-              })}
+        <div className="create-form">
+          <div className="form-row">
+            <label>Description</label>
+            <div style={{ padding: "12px", background: "#f8fbff", borderRadius: "8px", border: "1px solid #e8eef7" }}>
+              {selectedActivity.description || "No description provided."}
             </div>
           </div>
-        )}
 
-        {rubric && rubric.length > 0 && (
-          <div style={{ marginTop: "20px" }}>
-            <h3>Rubric</h3>
-            <table border="1" cellPadding="8" style={{ width: "100%" }}>
-              <thead>
-                <tr>
-                  <th>Criteria</th>
-                  <th>Max Marks</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rubric.map((r, index) => (
-                  <tr key={index}>
-                    <td>{r.name}</td>
-                    <td>{r.maxMarks}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginTop: "20px" }}>
+            <div className="status-chip" style={{ background: "#f8fbff", border: "1px solid #c8d8f0" }}>
+              <span className="muted" style={{ marginRight: "6px" }}>Status:</span>
+              <span className={`status-pill ${String(selectedActivity.status || "").toLowerCase()}`}>{String(selectedActivity.status || "N/A").replace("_", " ")}</span>
+            </div>
+            <div className="status-chip" style={{ background: "#f8fbff", border: "1px solid #c8d8f0" }}>
+              <span className="muted" style={{ marginRight: "6px" }}>Coordinator:</span>
+              <strong>{selectedActivity.coordinatorId?.name || 'N/A'}</strong>
+            </div>
+
+            {selectedActivity.assignmentId && (
+              <>
+                <div className="status-chip" style={{ background: "#f8fbff", border: "1px solid #c8d8f0" }}>
+                  <span className="muted" style={{ marginRight: "6px" }}>Class:</span>
+                  <strong>
+                    {selectedActivity.assignmentId?.year && selectedActivity.assignmentId?.division
+                      ? `${selectedActivity.assignmentId.year}-${selectedActivity.assignmentId.division}`
+                      : 'N/A'}
+                  </strong>
+                </div>
+                <div className="status-chip" style={{ background: "#f8fbff", border: "1px solid #c8d8f0" }}>
+                  <span className="muted" style={{ marginRight: "6px" }}>Subject:</span>
+                  <strong>{selectedActivity.assignmentId.subjectId?.name || 'N/A'}</strong>
+                </div>
+              </>
+            )}
+
+            <div className="status-chip" style={{ background: "#f8fbff", border: "1px solid #c8d8f0" }}>
+              <span className="muted" style={{ marginRight: "6px" }}>Scheduled Date:</span>
+              <strong>
+                {selectedActivity.scheduleDate ? new Date(selectedActivity.scheduleDate).toLocaleDateString("en-GB") : "Not Scheduled"}
+              </strong>
+            </div>
+
+            <div className="status-chip" style={{ background: "#f8fbff", border: "1px solid #c8d8f0" }}>
+              <span className="muted" style={{ marginRight: "6px" }}>Created:</span>
+              <strong>
+                {selectedActivity.createdAt ? new Date(selectedActivity.createdAt).toLocaleDateString("en-GB") : "N/A"}
+              </strong>
+            </div>
           </div>
-        )}
+
+          {selectedActivity.conductedConfirmation && (
+            <div style={{ marginTop: "24px", padding: "16px", background: "#f0fceb", border: "1px solid #c3e6cb", borderRadius: "8px" }}>
+              <h4 style={{ margin: "0 0 12px 0", color: "#155724" }}><i className="fa fa-check-circle" style={{ marginRight: "8px" }}></i> Conducted Confirmation</h4>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", fontSize: "14px" }}>
+                <div><strong>Conducted On:</strong> {new Date(selectedActivity.conductedConfirmation.confirmedAt).toLocaleString("en-GB")}</div>
+                <div><strong>Confirmed By:</strong> {selectedActivity.conductedConfirmation.confirmedBy?.name || 'N/A'}</div>
+                {selectedActivity.conductedConfirmation.notes && (
+                  <div style={{ gridColumn: "1 / -1", marginTop: "8px" }}>
+                    <strong>Notes:</strong> {selectedActivity.conductedConfirmation.notes}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {selectedActivity.modelAnswerFiles && selectedActivity.modelAnswerFiles.length > 0 && (
+            <div style={{ marginTop: "24px" }}>
+              <h3 style={{ fontSize: "16px", marginBottom: "12px", color: "#142f4f" }}>Model Answer Files</h3>
+              <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                {selectedActivity.modelAnswerFiles.map((file, index) => {
+                  const displayFilename = `ModelAns_${index + 1}`;
+                  const fileUrl = `http://localhost:5000${file}`;
+
+                  return (
+                    <a key={index} href={fileUrl} target="_blank" rel="noopener noreferrer" className="btn btn-outline" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
+                      <i className="fa fa-file-download" style={{ marginRight: "8px", color: "var(--primary)" }}></i> {displayFilename}
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {rubric && rubric.length > 0 && (
+            <div className="subject-table-wrap" style={{ marginTop: "24px" }}>
+              <table className="subject-table activities-table" style={{ width: "100%", textAlign: "left" }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: "left" }}>Rubric Criteria</th>
+                    <th style={{ textAlign: "center", width: "120px" }}>Max Marks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rubric.map((r, index) => (
+                    <tr key={index}>
+                      <td style={{ textAlign: "left" }}><strong>{r.name}</strong></td>
+                      <td style={{ textAlign: "center" }}><span className="status-chip">{r.maxMarks}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
     );
   }
 
   // Activities List View
   return (
-    <div style={{ padding: "20px" }}>
-      <button 
-        onClick={() => navigate('/hod')}
-        style={{
-          padding: "8px 16px",
-          marginBottom: "20px",
-          cursor: "pointer"
-        }}
-      >
-        ← Back to Dashboard
-      </button>
+    <div className="card activities-card" style={{ margin: "24px" }}>
+      <div className="activities-header" style={{ marginBottom: "24px" }}>
+        <div>
+          <h2>Activities Details</h2>
+          <p className="muted">Viewing {activities.length} internal activities assigned for this setup.</p>
+        </div>
+        <button className="btn btn-outline" onClick={() => navigate('/hod')}>
+          <i className="fa fa-arrow-left" style={{ marginRight: "8px" }}></i> Back to Dashboard
+        </button>
+      </div>
 
-      <h2>Activities ({activities.length})</h2>
-      
       {facultyName && (
-        <div style={{ marginBottom: "20px" }}>
-          <p><strong>Faculty:</strong> {decodeURIComponent(facultyName)}</p>
-          <p><strong>Subject:</strong> {decodeURIComponent(subjectName || '')}</p>
-          <p><strong>Class:</strong> {year}-{division}</p>
+        <div style={{ marginBottom: "24px", display: "flex", gap: "16px", flexWrap: "wrap" }}>
+          <div className="status-chip" style={{ background: "#f8fbff", border: "1px solid #c8d8f0" }}>
+            <span className="muted" style={{ marginRight: "6px" }}>Faculty:</span>
+            <strong>{decodeURIComponent(facultyName)}</strong>
+          </div>
+          <div className="status-chip" style={{ background: "#f8fbff", border: "1px solid #c8d8f0" }}>
+            <span className="muted" style={{ marginRight: "6px" }}>Subject:</span>
+            <strong>{decodeURIComponent(subjectName || '')}</strong>
+          </div>
+          <div className="status-chip" style={{ background: "#f8fbff", border: "1px solid #c8d8f0" }}>
+            <span className="muted" style={{ marginRight: "6px" }}>Class:</span>
+            <strong>{year}-{division}</strong>
+          </div>
         </div>
       )}
 
       {activities.length === 0 ? (
-        <p>No activities found.</p>
+        <div style={{ padding: "40px", textAlign: "center", background: "#fbfcff", borderRadius: "12px", border: "1px dashed #c8d8f0" }}>
+          <i className="fa fa-folder-open muted" style={{ fontSize: "32px", marginBottom: "16px" }}></i>
+          <p className="muted" style={{ fontSize: "16px" }}>No activities found for this assignment.</p>
+        </div>
       ) : (
-        <table border="1" cellPadding="8" style={{ marginTop: "20px", width: "100%" }}>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Status</th>
-              <th>Scheduled Date</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {activities.map((a) => (
-              <tr key={a._id}>
-                <td>{a.name || "N/A"}</td>
-                <td>{a.status || "N/A"}</td>
-                <td>
-                  {a.scheduleDate
-                    ? new Date(a.scheduleDate).toLocaleString("en-GB")
-                    : "Not Scheduled"}
-                </td>
-                <td>
-                  <button 
-                    onClick={() => handleViewDetails(a._id)}
-                    style={{
-                      padding: "6px 12px",
-                      backgroundColor: "#17a2b8",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor: "pointer"
-                    }}
-                  >
-                    View Details
-                  </button>
-                </td>
+        <div className="subject-table-wrap">
+          <table className="subject-table activities-table" style={{ width: "100%", textAlign: "left" }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left" }}>Name</th>
+                <th style={{ textAlign: "left" }}>Status</th>
+                <th style={{ textAlign: "left" }}>Scheduled Date</th>
+                <th style={{ textAlign: "center" }}>Action</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {activities.map((a) => (
+                <tr key={a._id}>
+                  <td style={{ textAlign: "left" }}>
+                    <strong>{a.name || "N/A"}</strong>
+                  </td>
+                  <td style={{ textAlign: "left" }}>
+                    <span className={`status-pill ${String(a.status || "").toLowerCase()}`}>
+                      {String(a.status || "N/A").replace("_", " ")}
+                    </span>
+                  </td>
+                  <td style={{ textAlign: "left" }}>
+                    {a.scheduleDate ? (
+                      <span className="status-chip">
+                        <i className="fa fa-calendar-alt" style={{ marginRight: '6px', color: '#667' }}></i>
+                        {new Date(a.scheduleDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        <span style={{ margin: '0 6px', color: '#ccc' }}>|</span>
+                        {new Date(a.scheduleDate).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    ) : (
+                      <span className="status-chip not-scheduled">
+                        <i className="fa fa-clock" style={{ marginRight: '6px' }}></i>
+                        Not Scheduled
+                      </span>
+                    )}
+                  </td>
+                  <td style={{ textAlign: "center" }}>
+                    <button
+                      onClick={() => handleViewDetails(a._id)}
+                      className="btn btn-info btn-compact"
+                      style={{ textDecoration: "none", display: "inline-block" }}
+                    >
+                      <i className="fa fa-eye" style={{ marginRight: "6px" }}></i> View Details
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

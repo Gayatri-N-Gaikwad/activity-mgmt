@@ -58,7 +58,7 @@ function HODDashboard() {
         }
 
         const subjectData = subjectMap.get(subjectId);
-        
+
         // Match divisions: "09", "9", etc.
         if (division === '09' || division === '9' || division.toLowerCase().includes('9')) {
           subjectData.div9 = facultyName;
@@ -88,7 +88,7 @@ function HODDashboard() {
   };
 
   const getYearLabel = () => {
-    switch(year) {
+    switch (year) {
       case 'SY': return 'Second Year';
       case 'TE': return 'Third Year';
       case 'BE': return 'Fourth Year';
@@ -97,147 +97,156 @@ function HODDashboard() {
   };
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h1>HOD Dashboard</h1>
-      <p style={{ color: "#666", marginBottom: "30px" }}>View subject allocations and faculty assignments</p>
+    <div className="admin-dashboard-page" style={{ padding: "0 24px" }}>
+      <div className="marquee-container" style={{ margin: "0 0 24px 0" }}>
+        <div className="marquee-text">
+          🚀 Welcome to the <span className="marquee-highlight">HOD Dashboard</span>! Quickly view subject allocations, track faculty assignments, and monitor activities across all academic years seamlessly. ⚙️
+        </div>
+      </div>
 
-      {!year ? (
-        <>
-          <h2>Select Academic Year</h2>
-          <div style={{ marginTop: "20px" }}>
-            <button 
-              onClick={() => setYear('SY')}
-              style={{
-                padding: "12px 24px",
-                marginRight: "10px",
-                marginBottom: "10px",
-                fontSize: "16px",
-                cursor: "pointer"
-              }}
-            >
-              Second Year
-            </button>
-            <button 
-              onClick={() => setYear('TE')}
-              style={{
-                padding: "12px 24px",
-                marginRight: "10px",
-                marginBottom: "10px",
-                fontSize: "16px",
-                cursor: "pointer"
-              }}
-            >
-              Third Year
-            </button>
-            <button 
-              onClick={() => setYear('BE')}
-              style={{
-                padding: "12px 24px",
-                marginRight: "10px",
-                marginBottom: "10px",
-                fontSize: "16px",
-                cursor: "pointer"
-              }}
-            >
-              Fourth Year
-            </button>
-          </div>
-        </>
-      ) : (
-        <>
-          <button 
-            onClick={() => setYear(null)}
-            style={{
-              padding: "8px 16px",
-              marginBottom: "20px",
-              cursor: "pointer"
-            }}
-          >
-            ← Back
-          </button>
+      <div className="admin-layout">
+        <div className="admin-content-area card" style={{ padding: "24px" }}>
+          {!year ? (
+            <>
+              <div className="activities-header" style={{ marginBottom: "24px" }}>
+                <div>
+                  <h2 style={{ marginTop: 0 }}>Subject Allocations</h2>
+                  <p className="muted">Select an academic year to view mapped assignments and track activities.</p>
+                </div>
+              </div>
 
-          <h2>Subject Allocations - {getYearLabel()}</h2>
-
-          {loading ? (
-            <p>Loading allocations...</p>
-          ) : allocationData.length === 0 ? (
-            <p style={{ color: "#999", fontStyle: "italic" }}>No subjects allocated for this year</p>
+              <div style={{ display: "flex", gap: "16px", marginTop: "24px", flexWrap: "wrap" }}>
+                <button
+                  className="btn btn-outline"
+                  style={{ flex: "1 1 auto", padding: "24px", fontSize: "16px", borderRadius: "12px" }}
+                  onClick={() => setYear('SY')}
+                >
+                  <i className="fa fa-users-class" style={{ fontSize: "24px", display: "block", marginBottom: "12px", color: "var(--primary)" }}></i>
+                  <strong>Second Year</strong> (SY)
+                </button>
+                <button
+                  className="btn btn-outline"
+                  style={{ flex: "1 1 auto", padding: "24px", fontSize: "16px", borderRadius: "12px" }}
+                  onClick={() => setYear('TE')}
+                >
+                  <i className="fa fa-users-class" style={{ fontSize: "24px", display: "block", marginBottom: "12px", color: "var(--primary)" }}></i>
+                  <strong>Third Year</strong> (TE)
+                </button>
+                <button
+                  className="btn btn-outline"
+                  style={{ flex: "1 1 auto", padding: "24px", fontSize: "16px", borderRadius: "12px" }}
+                  onClick={() => setYear('BE')}
+                >
+                  <i className="fa fa-users-class" style={{ fontSize: "24px", display: "block", marginBottom: "12px", color: "var(--primary)" }}></i>
+                  <strong>Fourth Year</strong> (BE)
+                </button>
+              </div>
+            </>
           ) : (
-            <table border="1" cellPadding="8" style={{ marginTop: "20px", width: "100%" }}>
-              <thead>
-                <tr>
-                  <th>Subject</th>
-                  <th>Div 9</th>
-                  <th>Div 10</th>
-                  <th>Div 11</th>
-                </tr>
-              </thead>
-              <tbody>
-                {allocationData.map((item) => (
-                  <tr key={item.subjectId}>
-                    <td>
-                      <strong>{item.subjectName}</strong>
-                      <br />
-                      <small style={{ color: "gray" }}>{item.subjectCode}</small>
-                    </td>
-                    <td 
-                      style={{ 
-                        cursor: item.div9 && item.div9 !== '-' ? 'pointer' : 'default',
-                        color: item.div9 && item.div9 !== '-' ? 'blue' : 'inherit',
-                        textDecoration: item.div9 && item.div9 !== '-' ? 'underline' : 'none'
-                      }}
-                      onClick={() => item.div9 && item.div9 !== '-' && item.div9Info && handleFacultyClick(
-                        item.div9, 
-                        item.subjectId, 
-                        item.subjectName, 
-                        item.div9Info.facultyId,
-                        item.div9Info.division, 
-                        year
-                      )}
-                    >
-                      {item.div9 || '-'}
-                    </td>
-                    <td 
-                      style={{ 
-                        cursor: item.div10 && item.div10 !== '-' ? 'pointer' : 'default',
-                        color: item.div10 && item.div10 !== '-' ? 'blue' : 'inherit',
-                        textDecoration: item.div10 && item.div10 !== '-' ? 'underline' : 'none'
-                      }}
-                      onClick={() => item.div10 && item.div10 !== '-' && item.div10Info && handleFacultyClick(
-                        item.div10, 
-                        item.subjectId, 
-                        item.subjectName, 
-                        item.div10Info.facultyId,
-                        item.div10Info.division, 
-                        year
-                      )}
-                    >
-                      {item.div10 || '-'}
-                    </td>
-                    <td 
-                      style={{ 
-                        cursor: item.div11 && item.div11 !== '-' ? 'pointer' : 'default',
-                        color: item.div11 && item.div11 !== '-' ? 'blue' : 'inherit',
-                        textDecoration: item.div11 && item.div11 !== '-' ? 'underline' : 'none'
-                      }}
-                      onClick={() => item.div11 && item.div11 !== '-' && item.div11Info && handleFacultyClick(
-                        item.div11, 
-                        item.subjectId, 
-                        item.subjectName, 
-                        item.div11Info.facultyId,
-                        item.div11Info.division, 
-                        year
-                      )}
-                    >
-                      {item.div11 || '-'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <>
+              <div className="activities-header" style={{ marginBottom: "24px" }}>
+                <div>
+                  <h2 style={{ marginTop: 0 }}>{getYearLabel()} Assignments</h2>
+                  <p className="muted">Click on an assigned faculty to view details and activities across divisions.</p>
+                </div>
+                <button
+                  className="btn btn-outline"
+                  onClick={() => setYear(null)}
+                  style={{ padding: "8px 16px" }}
+                >
+                  <i className="fa fa-arrow-left" style={{ marginRight: "8px" }}></i> Back
+                </button>
+              </div>
+
+              {loading ? (
+                <div style={{ padding: "40px", textAlign: "center" }}>
+                  <i className="fa fa-spinner fa-spin" style={{ fontSize: "24px", color: "var(--primary)" }}></i>
+                  <div style={{ marginTop: "16px", color: "var(--text-color)" }}>Loading allocations...</div>
+                </div>
+              ) : allocationData.length === 0 ? (
+                <div style={{ padding: "40px", textAlign: "center", background: "#fbfcff", borderRadius: "12px", border: "1px dashed #c8d8f0" }}>
+                  <i className="fa fa-folder-open muted" style={{ fontSize: "32px", marginBottom: "16px" }}></i>
+                  <p className="muted" style={{ fontSize: "16px" }}>No subjects allocated for {getYearLabel()} yet.</p>
+                </div>
+              ) : (
+                <div className="subject-table-wrap">
+                  <table className="subject-table activities-table" style={{ width: "100%", textAlign: "left" }}>
+                    <thead>
+                      <tr>
+                        <th style={{ textAlign: "left" }}>Subject</th>
+                        <th style={{ textAlign: "left" }}>Div 9</th>
+                        <th style={{ textAlign: "left" }}>Div 10</th>
+                        <th style={{ textAlign: "left" }}>Div 11</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allocationData.map((item) => (
+                        <tr key={item.subjectId}>
+                          <td style={{ textAlign: "left" }}>
+                            <strong>{item.subjectName}</strong>
+                            <div className="muted" style={{ fontSize: "13px", marginTop: "4px" }}>{item.subjectCode}</div>
+                          </td>
+                          <td
+                            style={{
+                              cursor: item.div9 && item.div9 !== '-' ? 'pointer' : 'default',
+                              textAlign: "left"
+                            }}
+                            onClick={() => item.div9 && item.div9 !== '-' && item.div9Info && handleFacultyClick(
+                              item.div9, item.subjectId, item.subjectName, item.div9Info.facultyId, item.div9Info.division, year
+                            )}
+                          >
+                            {item.div9 && item.div9 !== '-' ? (
+                              <span className="status-chip" style={{ background: "#f8fbff", border: "1px solid #c8d8f0", color: "#1d5fa8", fontWeight: "600", padding: "6px 12px" }}>
+                                <i className="fa fa-user" style={{ marginRight: "6px" }}></i> {item.div9}
+                              </span>
+                            ) : (
+                              <span className="muted">-</span>
+                            )}
+                          </td>
+                          <td
+                            style={{
+                              cursor: item.div10 && item.div10 !== '-' ? 'pointer' : 'default',
+                              textAlign: "left"
+                            }}
+                            onClick={() => item.div10 && item.div10 !== '-' && item.div10Info && handleFacultyClick(
+                              item.div10, item.subjectId, item.subjectName, item.div10Info.facultyId, item.div10Info.division, year
+                            )}
+                          >
+                            {item.div10 && item.div10 !== '-' ? (
+                              <span className="status-chip" style={{ background: "#f8fbff", border: "1px solid #c8d8f0", color: "#1d5fa8", fontWeight: "600", padding: "6px 12px" }}>
+                                <i className="fa fa-user" style={{ marginRight: "6px" }}></i> {item.div10}
+                              </span>
+                            ) : (
+                              <span className="muted">-</span>
+                            )}
+                          </td>
+                          <td
+                            style={{
+                              cursor: item.div11 && item.div11 !== '-' ? 'pointer' : 'default',
+                              textAlign: "left"
+                            }}
+                            onClick={() => item.div11 && item.div11 !== '-' && item.div11Info && handleFacultyClick(
+                              item.div11, item.subjectId, item.subjectName, item.div11Info.facultyId, item.div11Info.division, year
+                            )}
+                          >
+                            {item.div11 && item.div11 !== '-' ? (
+                              <span className="status-chip" style={{ background: "#f8fbff", border: "1px solid #c8d8f0", color: "#1d5fa8", fontWeight: "600", padding: "6px 12px" }}>
+                                <i className="fa fa-user" style={{ marginRight: "6px" }}></i> {item.div11}
+                              </span>
+                            ) : (
+                              <span className="muted">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
           )}
-        </>
-      )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -279,22 +279,17 @@ function DashboardPage() {
 
   return (
     <div className="faculty-dashboard">
-      <section className="dashboard-hero">
-        <div>
-          <h2>Faculty Dashboard</h2>
-          <p className="muted">Welcome back, {user?.name}. Track classes, subjects and activity performance in one place.</p>
-          {academicYear && (
-            <p className="dashboard-year">
-              Academic Year: <strong>{academicYear}</strong>
-            </p>
-          )}
+      <div className="marquee-container" style={{ margin: "0" }}>
+        <div className="marquee-text">
+          🚀 Welcome back, {user?.name}! This is your <span className="marquee-highlight">Faculty Dashboard</span>. Track classes, subjects, student performance, and download comprehensive activity reports seamlessly. {academicYear ? `| Current Academic Year: ${academicYear}` : ""} ⚙️
         </div>
-        <div className="dashboard-actions">
-          <button className="btn btn-primary" onClick={() => setRefreshKey((prev) => prev + 1)}>
-            Refresh Data
-          </button>
-        </div>
-      </section>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "16px", marginBottom: "8px" }}>
+        <button className="btn btn-primary" onClick={() => setRefreshKey((prev) => prev + 1)}>
+          <i className="fa fa-sync-alt" style={{ marginRight: "8px" }}></i> Refresh Data
+        </button>
+      </div>
 
       <section className="stats-grid">
         <article className="stat-card">
@@ -378,77 +373,77 @@ function DashboardPage() {
                 </div>
 
                 <div className="subject-table-wrap">
-                <table className="subject-table">
-                  <thead>
-                    <tr>
-                      <th>Roll No</th>
-                      <th>Student</th>
-                      {activityList.map((act, idx) => (
-                        <React.Fragment key={act.id || idx}>
-                          <th>{act.name || `Activity ${idx + 1}`}</th>
-                          <th>{act.name || `Activity ${idx + 1}`} Attendance</th>
-                        </React.Fragment>
-                      ))}
-                      <th>Total {subjectMaxMarks > 0 ? `(out of ${subjectMaxMarks})` : ""}</th>
-                      <th>Normalized out of 15</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {classStudents.map((stu) => {
-                      // Convert student ID to string for consistent key matching
-                      const studentIdStr = String(stu._id);
-                      const data =
-                        marksData[studentIdStr]?.[sub._id] || {
-                          activities: [],
-                          totalMarks: 0,
-                        };
+                  <table className="subject-table">
+                    <thead>
+                      <tr>
+                        <th>Roll No</th>
+                        <th>Student</th>
+                        {activityList.map((act, idx) => (
+                          <React.Fragment key={act.id || idx}>
+                            <th>{act.name || `Activity ${idx + 1}`}</th>
+                            <th>{act.name || `Activity ${idx + 1}`} Attendance</th>
+                          </React.Fragment>
+                        ))}
+                        <th>Total {subjectMaxMarks > 0 ? `(out of ${subjectMaxMarks})` : ""}</th>
+                        <th>Normalized out of 15</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {classStudents.map((stu) => {
+                        // Convert student ID to string for consistent key matching
+                        const studentIdStr = String(stu._id);
+                        const data =
+                          marksData[studentIdStr]?.[sub._id] || {
+                            activities: [],
+                            totalMarks: 0,
+                          };
 
-                      // Build a map for quick lookup by activity id
-                      const activityMap = new Map(
-                        (data.activities || []).map((a) => [getActivityId(a.activityId), a])
-                      );
+                        // Build a map for quick lookup by activity id
+                        const activityMap = new Map(
+                          (data.activities || []).map((a) => [getActivityId(a.activityId), a])
+                        );
 
-                      // Prepare per-activity cells and compute totals
-                      let total = 0;
-                      const activityCells = activityList.map((act, idx) => {
-                        const entry = activityMap.get(act.id);
-                        const marks = entry?.totalRubricMarks || 0;
-                        const attendance = entry?.attendance || 'Present';
-                        const numeric = attendance === 'Present' ? marks : 0;
-                        total += numeric;
-                        return {
-                          key: act.id || idx,
-                          marks,
-                          attendance,
-                        };
-                      });
+                        // Prepare per-activity cells and compute totals
+                        let total = 0;
+                        const activityCells = activityList.map((act, idx) => {
+                          const entry = activityMap.get(act.id);
+                          const marks = entry?.totalRubricMarks || 0;
+                          const attendance = entry?.attendance || 'Present';
+                          const numeric = attendance === 'Present' ? marks : 0;
+                          total += numeric;
+                          return {
+                            key: act.id || idx,
+                            marks,
+                            attendance,
+                          };
+                        });
 
-                      // Calculate normalized marks out of 15
-                      const normalizedMarks = subjectMaxMarks > 0 
-                        ? Math.round((total / subjectMaxMarks) * 15)
-                        : 0;
+                        // Calculate normalized marks out of 15
+                        const normalizedMarks = subjectMaxMarks > 0
+                          ? Math.round((total / subjectMaxMarks) * 15)
+                          : 0;
 
-                      return (
-                        <tr key={stu._id}>
-                          <td>{stu.rollNumber}</td>
-                          <td>{stu.name}</td>
-                          {activityCells.map((c) => (
-                            <React.Fragment key={c.key}>
-                              <td>{c.marks}</td>
-                              <td>
-                                <span className={`attendance-pill ${c.attendance === "Present" ? "present" : "absent"}`}>
-                                  {c.attendance}
-                                </span>
-                              </td>
-                            </React.Fragment>
-                          ))}
-                          <td><strong>{total}</strong></td>
-                          <td><strong>{normalizedMarks}</strong></td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                        return (
+                          <tr key={stu._id}>
+                            <td>{stu.rollNumber}</td>
+                            <td>{stu.name}</td>
+                            {activityCells.map((c) => (
+                              <React.Fragment key={c.key}>
+                                <td>{c.marks}</td>
+                                <td>
+                                  <span className={`attendance-pill ${c.attendance === "Present" ? "present" : "absent"}`}>
+                                    {c.attendance}
+                                  </span>
+                                </td>
+                              </React.Fragment>
+                            ))}
+                            <td><strong>{total}</strong></td>
+                            <td><strong>{normalizedMarks}</strong></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </section>
             );

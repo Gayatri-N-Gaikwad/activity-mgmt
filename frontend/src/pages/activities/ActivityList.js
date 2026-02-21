@@ -98,7 +98,7 @@ function ActivityList() {
     }
   };
 
-  function handleStatusChangeRequest(act, newStatus) {
+  async function handleStatusChangeRequest(act, newStatus) {
     if (!act || newStatus === act.status) return;
     const allowed = STATUS_TRANSITIONS[act.status] || [];
     if (!allowed.includes(newStatus)) {
@@ -124,8 +124,21 @@ function ActivityList() {
       }
     }
 
-    if (newStatus === "Marks_Updated" && act.status !== "Conducted") {
-      showToast("error", "Can update marks only after the activity has been Conducted");
+    // Direct API call for Marks_Updated instead of opening modal
+    if (newStatus === "Marks_Updated") {
+      if (act.status !== "Conducted") {
+        showToast("error", "Can update marks only after the activity has been Conducted");
+        return;
+      }
+
+      try {
+        await API.put(`/activities/update/${act._id}`, { status: newStatus });
+        showToast("success", "Status updated to Marks Updated");
+        loadActivities(userId);
+      } catch (err) {
+        console.error("Status update error", err);
+        showToast("error", err.response?.data?.error || "Error updating status. Ensure marks are added.");
+      }
       return;
     }
 

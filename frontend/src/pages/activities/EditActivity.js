@@ -22,7 +22,7 @@ function EditActivity() {
 
   // Lock if activity is conducted
   const ownLocked = activity.status === "Conducted";
-  
+
   // Marks can be edited only if status is Scheduled
   const marksEditable = activity.status !== "Conducted" && activity.status !== "Marks_Updated";
 
@@ -55,7 +55,7 @@ function EditActivity() {
       name: activity.name,
       description: activity.description
     };
-    
+
     // Include marks if it's provided and activity not conducted
     if (activity.marks && marksEditable) {
       toSend.marks = activity.marks;
@@ -82,99 +82,105 @@ function EditActivity() {
   };
 
   return (
-    <div>
-      <h2>Edit Activity</h2>
+    <div className="create-activity-page">
+      <div className="create-activity-card">
+        <div className="form-brand">Edit Activity</div>
+        <h2 className="form-title">Update Details</h2>
+        <p className="form-subtitle">Modify activity details, schedule, and marks below.</p>
 
-      <form onSubmit={update}>
-        {/* Activity Name */}
-        <div className="form-row">
-          <label>Activity Name</label>
-          <input
-            value={activity.name}
-            onChange={(e) => setActivity({ ...activity, name: e.target.value })}
-            required
-          />
-        </div>
+        <form onSubmit={update} className="create-form">
+          {/* Activity Name */}
+          <div className="form-row">
+            <label>Activity Name</label>
+            <input
+              value={activity.name}
+              onChange={(e) => setActivity({ ...activity, name: e.target.value })}
+              required
+            />
+          </div>
 
-        {/* Description */}
-        <div className="form-row">
-          <label>Description</label>
-          <textarea
-            value={activity.description}
-            onChange={(e) => setActivity({ ...activity, description: e.target.value })}
-            required
-          />
-        </div>
+          {/* Description */}
+          <div className="form-row">
+            <label>Description</label>
+            <textarea
+              value={activity.description}
+              onChange={(e) => setActivity({ ...activity, description: e.target.value })}
+              required
+            />
+          </div>
 
-        {/* Schedule Date */}
-        <div className="form-row">
-          <label>Schedule Date & Time</label>
-          <input
-            type="datetime-local"
-            value={activity.scheduleDate ? formatToKolkataInput(activity.scheduleDate) : ''}
-            onChange={(e) => setActivity({ ...activity, scheduleDate: e.target.value })}
-            required
-            disabled={ownLocked}
-          />
-          {ownLocked && (
-            <small style={{ color: '#666' }}>
-              Cannot change schedule after this activity is Conducted.
-            </small>
+          {/* Schedule Date */}
+          <div className="form-row">
+            <label>Schedule Date & Time</label>
+            <input
+              type="datetime-local"
+              value={activity.scheduleDate ? formatToKolkataInput(activity.scheduleDate) : ''}
+              onChange={(e) => setActivity({ ...activity, scheduleDate: e.target.value })}
+              required
+              disabled={ownLocked}
+            />
+            {ownLocked && (
+              <small style={{ color: '#666' }}>
+                Cannot change schedule after this activity is Conducted.
+              </small>
+            )}
+          </div>
+
+          {/* Marks */}
+          {marksEditable && (
+            <div className="form-row">
+              <label>Marks</label>
+              <input
+                type="number"
+                value={activity.marks}
+                onChange={(e) => setActivity({ ...activity, marks: e.target.value })}
+                placeholder="Enter total marks"
+                step="0.01"
+                min="0"
+              />
+              <small style={{ color: "#666" }}>
+                You can edit marks only when status is Scheduled.
+              </small>
+            </div>
           )}
-        </div>
+          {!marksEditable && (
+            <div className="form-row">
+              <label>Marks</label>
+              <input
+                type="number"
+                value={activity.marks || ""}
+                disabled
+                placeholder="Cannot edit marks after activity is conducted or marked as updated"
+              />
+            </div>
+          )}
 
-        {/* Marks */}
-        {marksEditable && (
-          <div className="form-row">
-            <label>Marks</label>
-            <input
-              type="number"
-              value={activity.marks}
-              onChange={(e) => setActivity({ ...activity, marks: e.target.value })}
-              placeholder="Enter total marks"
-              step="0.01"
-              min="0"
-            />
-            <small style={{ color: "#666" }}>
-              You can edit marks only when status is Scheduled.
-            </small>
-          </div>
-        )}
-        {!marksEditable && (
-          <div className="form-row">
-            <label>Marks</label>
-            <input
-              type="number"
-              value={activity.marks || ""}
-              disabled
-              placeholder="Cannot edit marks after activity is conducted or marked as updated"
-            />
-          </div>
-        )}
+          {/* Mark Subdivisions Display */}
+          {markSubdivisions.length > 0 && (
+            <div className="form-row">
+              <label>Marks Breakdown</label>
+              <div className="breakdown-list" style={{ marginTop: "10px", padding: "10px", background: "#f8fbff", border: "1px solid #dbe4f1", borderRadius: "8px" }}>
+                <ul style={{ margin: 0, paddingLeft: "20px", color: "#1a3d63", fontWeight: "600" }}>
+                  {markSubdivisions.map((s) => (
+                    <li key={s._id} style={{ marginBottom: "6px" }}>
+                      {s.title} – {s.maxMarks} marks
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <small style={{ color: "#666", display: "inline-block", marginTop: "8px" }}>
+                Marks breakdown is for information only and cannot be edited.
+              </small>
+            </div>
+          )}
 
-        {/* Mark Subdivisions Display */}
-        {markSubdivisions.length > 0 && (
-          <div className="form-row">
-            <label>Marks Breakdown</label>
-            <ul>
-              {markSubdivisions.map((s) => (
-                <li key={s._id}>
-                  {s.title} – {s.maxMarks}
-                </li>
-              ))}
-            </ul>
-            <small style={{ color: "#666" }}>
-              Marks breakdown is for information only and cannot be edited.
-            </small>
+          {/* Buttons */}
+          <div className="form-actions">
+            <button type="submit" className="btn btn-primary">Update Activity</button>
+            <button type="button" className="btn btn-outline" onClick={() => navigate('/activities')}>Cancel</button>
           </div>
-        )}
-
-        {/* Buttons */}
-        <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
-          <button type="submit" className="btn btn-primary">Update</button>
-          <button type="button" className="btn btn-outline" onClick={() => navigate('/activities')}>Back</button>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }

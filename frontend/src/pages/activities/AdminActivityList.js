@@ -36,61 +36,100 @@ function AdminActivityList() {
     loadActivities();
   }, [facultyId, subjectId, year, division]);
 
-  if (loading) return <div className="card">Loading activities...</div>;
+  if (loading) return (
+    <div className="card" style={{ padding: "40px", textAlign: "center" }}>
+      <i className="fa fa-spinner fa-spin" style={{ fontSize: "24px", color: "var(--primary)" }}></i>
+      <div style={{ marginTop: "16px", color: "var(--text-color)" }}>Loading activities...</div>
+    </div>
+  );
 
   return (
-    <div className="card">
-      <h2>Activities ({activities.length})</h2>
-      
+    <div className="card activities-card">
+      <div className="activities-header" style={{ marginBottom: "24px" }}>
+        <div>
+          <h2>Activities Details</h2>
+          <p className="muted">Viewing {activities.length} internal activities assigned for this setup.</p>
+        </div>
+        <Link to="/admin" className="btn btn-outline" style={{ textDecoration: "none" }}>
+          <i className="fa fa-arrow-left" style={{ marginRight: "8px" }}></i> Back to Admin Dashboard
+        </Link>
+      </div>
+
       {facultyName && (
-        <div style={{ marginBottom: "20px" }}>
-          <p><strong>Faculty:</strong> {decodeURIComponent(facultyName)}</p>
-          <p><strong>Subject:</strong> {decodeURIComponent(subjectName || '')}</p>
-          <p><strong>Class:</strong> {year}-{division}</p>
+        <div style={{ marginBottom: "24px", display: "flex", gap: "16px", flexWrap: "wrap" }}>
+          <div className="status-chip" style={{ background: "#f8fbff", border: "1px solid #c8d8f0" }}>
+            <span className="muted" style={{ marginRight: "6px" }}>Faculty:</span>
+            <strong>{decodeURIComponent(facultyName)}</strong>
+          </div>
+          <div className="status-chip" style={{ background: "#f8fbff", border: "1px solid #c8d8f0" }}>
+            <span className="muted" style={{ marginRight: "6px" }}>Subject:</span>
+            <strong>{decodeURIComponent(subjectName || '')}</strong>
+          </div>
+          <div className="status-chip" style={{ background: "#f8fbff", border: "1px solid #c8d8f0" }}>
+            <span className="muted" style={{ marginRight: "6px" }}>Class:</span>
+            <strong>{year}-{division}</strong>
+          </div>
         </div>
       )}
 
       {activities.length === 0 ? (
-        <p>No activities found.</p>
+        <div style={{ padding: "40px", textAlign: "center", background: "#fbfcff", borderRadius: "12px", border: "1px dashed #c8d8f0" }}>
+          <i className="fa fa-folder-open muted" style={{ fontSize: "32px", marginBottom: "16px" }}></i>
+          <p className="muted" style={{ fontSize: "16px" }}>No activities found for this assignment.</p>
+        </div>
       ) : (
-        <table width="100%" cellPadding="8">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Status</th>
-              <th>Scheduled Date</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {activities.map((a) => (
-              <tr key={a._id}>
-                <td>{a.name || "N/A"}</td>
-                <td>{a.status || "N/A"}</td>
-                <td>
-                  {a.scheduleDate
-                    ? new Date(a.scheduleDate).toLocaleString("en-GB")
-                    : "Not Scheduled"}
-                </td>
-                <td>
-                  <Link 
-                    to={`/activity/details/${a._id}`} 
-                    state={{ fromAdmin: true }}
-                    className="btn btn-info"
-                  >
-                    View Details
-                  </Link>
-                </td>
+        <div className="subject-table-wrap">
+          <table className="subject-table activities-table" style={{ width: "100%", textAlign: "left" }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left" }}>Name</th>
+                <th style={{ textAlign: "left" }}>Status</th>
+                <th style={{ textAlign: "left" }}>Scheduled Date</th>
+                <th style={{ textAlign: "center" }}>Action</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {activities.map((a) => (
+                <tr key={a._id}>
+                  <td style={{ textAlign: "left" }}>
+                    <strong>{a.name || "N/A"}</strong>
+                  </td>
+                  <td style={{ textAlign: "left" }}>
+                    <span className={`status-pill ${String(a.status || "").toLowerCase()}`}>
+                      {String(a.status || "N/A").replace("_", " ")}
+                    </span>
+                  </td>
+                  <td style={{ textAlign: "left" }}>
+                    {a.scheduleDate ? (
+                      <span className="status-chip">
+                        <i className="fa fa-calendar-alt" style={{ marginRight: '6px', color: '#667' }}></i>
+                        {new Date(a.scheduleDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        <span style={{ margin: '0 6px', color: '#ccc' }}>|</span>
+                        {new Date(a.scheduleDate).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    ) : (
+                      <span className="status-chip not-scheduled">
+                        <i className="fa fa-clock" style={{ marginRight: '6px' }}></i>
+                        Not Scheduled
+                      </span>
+                    )}
+                  </td>
+                  <td style={{ textAlign: "center" }}>
+                    <Link
+                      to={`/activity/details/${a._id}`}
+                      state={{ fromAdmin: true }}
+                      className="btn btn-info btn-compact"
+                      style={{ textDecoration: "none", display: "inline-block" }}
+                    >
+                      <i className="fa fa-eye" style={{ marginRight: "6px" }}></i> View Details
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
-
-      <br />
-      <Link to="/admin" className="btn btn-secondary">
-        ← Back to Admin Dashboard
-      </Link>
     </div>
   );
 }
