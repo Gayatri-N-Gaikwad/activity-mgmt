@@ -21,6 +21,8 @@ import studentSubjectMarksRoutes from "./routes/studentSubjectMarksRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import hodRoutes from "./routes/hodRoutes.js";
 
+import { startActivityCron } from "./cron/activityCron.js";
+
 dotenv.config();
 console.log("✅ ENV file loaded");
 console.log("MONGO_URI value:", process.env.MONGO_URI);
@@ -94,7 +96,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // --------------------
 // 🔹 Connect to MongoDB
 // --------------------
-connectDB();
+// connectDB();
 
 // --------------------
 // 🔹 Routes
@@ -115,8 +117,26 @@ app.use("/api/student-subject-marks", studentSubjectMarksRoutes); // Added route
 app.use("/api/admin", adminRoutes);
 app.use("/api/hod", hodRoutes);
 
+
 // --------------------
-// 🔹 Start server
+// 🔹 Start Server Properly
 // --------------------
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+const startServer = async () => {
+  try {
+    await connectDB(); // Wait for MongoDB
+
+    // Start cron AFTER DB connection
+    startActivityCron();
+    console.log("⏰ Activity Cron Started");
+
+    const PORT = process.env.PORT || 5000;
+    app.listen(PORT, () =>
+      console.log(`✅ Server running on port ${PORT}`)
+    );
+  } catch (error) {
+    console.error("❌ Server startup failed:", error.message);
+    process.exit(1);
+  }
+};
+
+startServer();

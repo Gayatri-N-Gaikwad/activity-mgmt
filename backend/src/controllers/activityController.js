@@ -10,7 +10,7 @@ import Student from "../models/Student.js";
 import StudentSubjectMarks from "../models/StudentSubjectMarks.js";
 import AcademicYear from "../models/AcademicYear.js";
 import ActivityMarkSubdivision from "../models/ActivityMarkSubdivision.js";
-import { sendNotificationEmail, generateActivityNotificationTemplate, generateActivityUpdateTemplate, generateActivityDeleteTemplate } from "../services/notificationService.js";
+import { sendNotificationEmail, generateActivityNotificationTemplate, generateActivityUpdateTemplate, generateActivityDeleteTemplate } from "../services/emailService.js";
 import User from "../models/User.js";
 
 

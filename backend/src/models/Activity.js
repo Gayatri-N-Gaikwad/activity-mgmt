@@ -18,6 +18,20 @@ const activitySchema = new Schema({
   }
 }, { timestamps: true });
 
+/* ============================
+   INDEXES 
+============================ */
+
+// For cron queries: scheduleDate + status
+activitySchema.index({ scheduleDate: 1, status: 1 });
+
+// For faculty-based queries
+activitySchema.index({ coordinatorId: 1 });
+
+/* ============================
+   MODEL EXPORT
+============================ */
+
 const Activity = mongoose.model("Activity", activitySchema);
 
 export default Activity;   // <-- IMPORTANT
