@@ -222,7 +222,9 @@ export const generateActivityUpdateTemplate = (
   activityData,
   className,
   subjectName,
-  facultyName
+  facultyName,
+  totalMarks = null,
+  subdivisions = []
 ) => {
   const { name, description, scheduleDate } = activityData;
   const formattedDate = new Date(scheduleDate).toLocaleString("en-IN", {
@@ -233,6 +235,28 @@ export const generateActivityUpdateTemplate = (
     hour: "2-digit",
     minute: "2-digit",
   });
+
+  const totalMarksValue = totalMarks || 0;
+
+  let subdivisionListHtml = '';
+  if (subdivisions && subdivisions.length > 0) {
+    const subdivisionItems = subdivisions
+      .map(sub => `<li>${sub.title}: ${sub.maxMarks} marks</li>`)
+      .join('');
+    subdivisionListHtml = `
+            <div class="field">
+              <span class="label">Mark Subdivisions:</span>
+              <ul style="margin: 10px 0; padding-left: 20px;">
+                ${subdivisionItems}
+              </ul>
+            </div>`;
+  }
+
+  let subdivisionListText = '';
+  if (subdivisions && subdivisions.length > 0) {
+    subdivisionListText = '\n\nMark Subdivisions:\n' +
+      subdivisions.map(sub => `  - ${sub.title}: ${sub.maxMarks} marks`).join('\n');
+  }
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -286,6 +310,10 @@ export const generateActivityUpdateTemplate = (
               <span class="label">Updated Schedule:</span> ${formattedDate}
             </div>
             
+            <div class="field">
+              <span class="label">Total Marks:</span> ${totalMarksValue}
+            </div>${subdivisionListHtml}
+            
             <div class="footer">
               <p>This is an automated notification from the Activity Management System.</p>
             </div>
@@ -305,6 +333,7 @@ Subject: ${subjectName}
 Faculty: ${facultyName}
 Description: ${description}
 Updated Schedule: ${formattedDate}
+Total Marks: ${totalMarksValue}${subdivisionListText}
 
 This is an automated notification from the Activity Management System.
   `;

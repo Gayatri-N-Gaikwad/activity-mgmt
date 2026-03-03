@@ -313,7 +313,14 @@ export const getActivitiesByAssignment = async (req, res) => {
   try {
     const { assignmentId } = req.params;
     const activities = await Activity.find({ assignmentId });
-    res.json({ activities });
+    
+  // Calculate totalMarks for each activity
+  const activitiesWithMarks = activities.map(activity => ({
+    ...activity,
+    totalMarks: 0 // Placeholder - would need subdivisions fetch for each
+  }));
+  
+  res.json({ activities: activitiesWithMarks });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error fetching activities" });
@@ -538,49 +545,64 @@ export const updateActivity = async (req, res) => {
 
 
 
-    // Send update notification email
-    try {
-      const assignmentWithDetails = await TeachingAssignment.findById(
-        activity.assignmentId
-      )
-        .populate("subjectId")
-        .lean();
-
-      if (assignmentWithDetails) {
-        const coordinator = await User.findById(activity.coordinatorId)
-          .select("name")
+    // Send update notification email only if detail fields (not just status) changed
+    const detailFieldsChanged = name || description || scheduleDate;
+    if (detailFieldsChanged) {
+      try {
+        const assignmentWithDetails = await TeachingAssignment.findById(
+          updatedActivity.assignmentId
+        )  .populate("subjectId")
           .lean();
-        const className = `${assignmentWithDetails.year} - ${assignmentWithDetails.division}`;
-        const subjectName =
-          assignmentWithDetails.subjectId?.name || "Unknown Subject";
-        const facultyName = coordinator?.name || "Unknown Faculty";
+        if (assignmentWithDetails) {
+          const coordinator = await User.findById(updatedActivity.coordinatorId)
+            .select("name")
+            .lean();
+          const className = `${assignmentWithDetails.year} - ${assignmentWithDetails.division}`;
+          const subjectName =
+            assignmentWithDetails.subjectId?.name || "Unknown Subject";
+          const facultyName = coordinator?.name || "Unknown Faculty";
+          const classDoc = await Class.findOne({
+            year: assignmentWithDetails.year,
+            division: assignmentWithDetails.division,
+          })
+            .select("google_group_email")
+            .lean();
+          if (classDoc?.google_group_email) {
+            // Fetch mark subdivisions
+            const subdivisions = await ActivityMarkSubdivision.find({
+              activityId: updatedActivity._id,
+            }).select("title maxMarks").lean();
+            
+            let totalMarks = subdivisions.reduce((sum, sub) => sum + (Number(sub.maxMarks) || 0), 0);
+            
+            // Fallback to rubrics if no subdivisions
+            if (totalMarks === 0 && (!subdivisions || subdivisions.length === 0)) {
+              const rubrics = await RubricCriteria.find({
+                activityId: updatedActivity._id,
+              }).select("maxMarks").lean();
+              totalMarks = rubrics.reduce((sum, rb) => sum + (Number(rb.maxMarks) || 0), 0);
+            }
+            
+            const { html, text } = generateActivityUpdateTemplate(
+              updatedActivity,
+              className,
+              subjectName,
+              facultyName,
+              totalMarks,
+              subdivisions
+            );
 
-        const classDoc = await Class.findOne({
-          year: assignmentWithDetails.year,
-          division: assignmentWithDetails.division,
-        })
-          .select("google_group_email")
-          .lean();
-
-        if (classDoc?.google_group_email) {
-          const { html, text } = generateActivityUpdateTemplate(
-            activity,
-            className,
-            subjectName,
-            facultyName
-          );
-
-          await sendNotificationEmail(
-            classDoc.google_group_email,
-            `Activity Updated: ${activity.name}`,
-            html,
-            text
-          );
-          
+            await sendNotificationEmail(
+              classDoc.google_group_email,
+              `Activity Updated: ${updatedActivity.name}`,
+              html,
+              text
+            );
+          }
         }
+      } catch (notificationError) {
+        console.error("Error sending update notification:", notificationError);
       }
-    } catch (notificationError) {
-      console.error("Error sending update notification:", notificationError);
     }
 
     res.json({
@@ -792,7 +814,14 @@ export const getActivitiesByClassSubject = async (req, res) => {
     // Fetch all activities under this assignment
     const activities = await Activity.find({ assignmentId: assignment._id });
 
-    res.json({ activities });
+    
+  // Calculate totalMarks for each activity
+  const activitiesWithMarks = activities.map(activity => ({
+    ...activity,
+    totalMarks: 0 // Placeholder - would need subdivisions fetch for each
+  }));
+  
+  res.json({ activities: activitiesWithMarks });
   } catch (err) {
     console.error("Error fetching activities:", err);
     res.status(500).json({ error: "Server error" });
