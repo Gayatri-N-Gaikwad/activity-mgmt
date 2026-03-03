@@ -259,7 +259,22 @@ export const getAllActivities = async (req, res) => {
         const rubric = await RubricCriteria.find({
           activityId: act._id,
         }).select("name maxMarks");
-        return { ...act.toObject(), rubric };
+        
+        // Also fetch mark subdivisions if rubric is empty
+        let finalRubric = rubric;
+        if (rubric.length === 0) {
+          const subdivisions = await ActivityMarkSubdivision.find({
+            activityId: act._id,
+          }).select("title maxMarks");
+          
+          // Convert subdivisions to rubric format
+          finalRubric = subdivisions.map(sub => ({
+            name: sub.title,
+            maxMarks: sub.maxMarks
+          }));
+        }
+        
+        return { ...act.toObject(), rubric: finalRubric };
       })
     );
     res.json({ activities: activitiesWithRubric });
