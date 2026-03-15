@@ -310,11 +310,11 @@ function DashboardPage() {
         </article>
       </section>
 
-      {updatedActivitiesCount < 2 && (
+      {/* {updatedActivitiesCount < 2 && (
         <div className="status-alert status-alert-warn">
           Marks updated for {updatedActivitiesCount}/2 activities. Please update marks for both activities before downloading reports.
         </div>
-      )}
+      )} */}
 
       {classes.length === 0 && <div className="dashboard-panel">No classes assigned.</div>}
 

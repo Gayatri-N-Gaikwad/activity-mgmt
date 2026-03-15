@@ -1,193 +1,164 @@
 import ExcelJS from 'exceljs';
 
 /**
- * Create Excel workbook with marks data
+ * Single-activity download (Activity List → download button).
+ * Columns: Roll No | Name | Attendance | [sub1 /max] ... | Total Marks
  */
 export const createMarksExcel = async (options) => {
-  const { students, activities, subject, className } = options;
+  const { students, activities } = options;
+  const activity = activities[0]; // single activity
 
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Marks');
 
-  const headers = ['Roll Number', 'Student Name'];
+  const rubric = activity.rubric || [];
 
-  activities.forEach((activity) => {
-    headers.push(activity.name);                  // Marks
-    headers.push(`${activity.name} Attendance`); // Attendance
-  });
+  // ---- HEADER ----
+  const headers = ['Roll Number', 'Student Name', 'Attendance'];
+  rubric.forEach((r) => headers.push(`${r.name} (/${r.maxMarks})`));
+  headers.push('Total Marks');
 
   worksheet.addRow(headers);
 
-  // Header styling
   const headerRow = worksheet.getRow(1);
   headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-  headerRow.fill = {
-    type: 'pattern',
-    pattern: 'solid',
-    fgColor: { argb: 'FF4472C4' }
-  };
+  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
   headerRow.alignment = { horizontal: 'center', vertical: 'center' };
 
+  // ---- DATA ROWS ----
   students.forEach((student) => {
-    const row = [student.rollNumber, student.name];
+    const activityMarks = student.activities.find(
+      (a) => String(a.activityId) === String(activity._id)
+    );
 
-    activities.forEach((activity) => {
-      const activityMarks = student.activities.find(
-        (a) =>
-          a.activityId === activity._id ||
-          a.activityId.toString() === activity._id.toString()
+    const attendance = activityMarks?.attendance || 'Absent';
+    const total = activityMarks?.totalRubricMarks ?? 0;
+
+    const rubricCols = rubric.map((criteria) => {
+      const rm = activityMarks?.rubricMarks?.find(
+        (r) => String(r.criteriaId) === String(criteria._id)
       );
-
-      const marks = activityMarks?.totalRubricMarks || 0;
-      const attendance = activityMarks?.attendance || 'Absent'; 
-      row.push(marks);
-      row.push(attendance);
+      return rm?.marks ?? 0;
     });
 
-    worksheet.addRow(row);
+    worksheet.addRow([student.rollNumber, student.name, attendance, ...rubricCols, total]);
   });
 
+  // ---- COLUMN WIDTHS ----
   worksheet.columns = [
+    { width: 14 },
+    { width: 26 },
     { width: 12 },
-    { width: 25 },
-    ...activities.flatMap(() => [
-      { width: 15 }, // Marks
-      { width: 15 }  // Attendance
-    ])
+    ...rubric.map(() => ({ width: 18 })),
+    { width: 14 },
   ];
-
 
   return await workbook.xlsx.writeBuffer();
 };
 
+
 /**
- * Create combined marks Excel with separate sheets for each activity
+ * Multi-activity download (Dashboard "Download Report").
+ * Summary sheet: Roll No | Name | [activityN total] ... | Grand Total | Normalised /15
+ * Per-activity sheets: Roll No | Name | Attendance | [sub1 /max] ... | Total
  */
 export const createCombinedMarksExcel = async (options) => {
-  const {
-    students,
-    activities,
-    subject,
-    className,
-    subjectMaxMarks = 15 
-  } = options;
+  const { students, activities, subjectMaxMarks = 15 } = options;
 
   const workbook = new ExcelJS.Workbook();
 
+  // ============================================================
+  // SUMMARY SHEET
+  // ============================================================
   const summarySheet = workbook.addWorksheet('Summary');
 
   const summaryHeaders = ['Roll Number', 'Student Name'];
-
-  activities.forEach((activity) => {
-    summaryHeaders.push(activity.name);
-  });
-
+  activities.forEach((a) => summaryHeaders.push(a.name));
   summaryHeaders.push('Total');
-  summaryHeaders.push('Normalized out of 15');
+  summaryHeaders.push('Normalised /15');
 
   summarySheet.addRow(summaryHeaders);
 
-  // Header styling
-  const headerRow = summarySheet.getRow(1);
-  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-  headerRow.fill = {
-    type: 'pattern',
-    pattern: 'solid',
-    fgColor: { argb: 'FF4472C4' }
-  };
-  headerRow.alignment = { horizontal: 'center', vertical: 'center' };
+  const sHeader = summarySheet.getRow(1);
+  sHeader.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  sHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+  sHeader.alignment = { horizontal: 'center', vertical: 'center' };
 
   students.forEach((student) => {
     const row = [student.rollNumber, student.name];
-
     let totalMarks = 0;
-    let totalMaxMarks = 0; 
+    let totalMaxMarks = 0;
 
     activities.forEach((activity) => {
-      const activityMarks = student.activities.find(
-        (a) => a.activityId.toString() === activity._id.toString()
+      const am = student.activities.find(
+        (a) => String(a.activityId) === String(activity._id)
       );
-
-      const marks = activityMarks?.totalRubricMarks || 0;
+      const marks = am?.totalRubricMarks ?? 0;
       row.push(marks);
-
       totalMarks += marks;
-      totalMaxMarks += activity.maxMarks || 0; 
+      totalMaxMarks += activity.maxMarks || 0;
     });
 
     row.push(totalMarks);
-
-    const normalized =
+    const normalised =
       totalMaxMarks > 0
         ? Math.round((totalMarks / totalMaxMarks) * subjectMaxMarks)
         : 0;
-
-    row.push(normalized);
+    row.push(normalised);
 
     summarySheet.addRow(row);
   });
 
   summarySheet.columns = [
-    { width: 12 },
-    { width: 25 },
+    { width: 14 },
+    { width: 26 },
     ...activities.map(() => ({ width: 15 })),
     { width: 12 },
-    { width: 15 }
+    { width: 16 },
   ];
 
-  // Create individual sheets for each activity
+  // ============================================================
+  // PER-ACTIVITY SHEETS
+  // ============================================================
   activities.forEach((activity) => {
-    const activitySheet = workbook.addWorksheet(
-      activity.name.substring(0, 31)
-    );
+    const sheet = workbook.addWorksheet(activity.name.substring(0, 31));
+    const rubric = activity.rubric || [];
 
     const headers = ['Roll Number', 'Student Name', 'Attendance'];
+    rubric.forEach((r) => headers.push(`${r.name} (/${r.maxMarks})`));
+    headers.push('Total Marks');
 
-    if (activity.rubric && activity.rubric.length > 0) {
-      activity.rubric.forEach((criteria) => {
-        headers.push(`${criteria.name} (/${criteria.maxMarks})`);
-      });
-    }
+    sheet.addRow(headers);
 
-    activitySheet.addRow(headers);
-
-    const headerRow = activitySheet.getRow(1);
-    headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-    headerRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FF70AD47' }
-    };
-    headerRow.alignment = { horizontal: 'center', vertical: 'center' };
+    const hRow = sheet.getRow(1);
+    hRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    hRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF70AD47' } };
+    hRow.alignment = { horizontal: 'center', vertical: 'center' };
 
     students.forEach((student) => {
-      const activityMarks = student.activities.find(
-        (a) => a.activityId.toString() === activity._id.toString()
+      const am = student.activities.find(
+        (a) => String(a.activityId) === String(activity._id)
       );
 
-      const row = [
-        student.rollNumber,
-        student.name,
-        activityMarks?.attendance || 'Absent'
-      ];
+      const attendance = am?.attendance || 'Absent';
+      const total = am?.totalRubricMarks ?? 0;
 
-      if (activity.rubric && activity.rubric.length > 0) {
-        activity.rubric.forEach((criteria) => {
-          const rubricMark = activityMarks?.rubricMarks?.find(
-            (r) => r.criteriaId.toString() === criteria._id.toString()
-          );
-          row.push(rubricMark?.marks || 0);
-        });
-      }
+      const rubricCols = rubric.map((criteria) => {
+        const rm = am?.rubricMarks?.find(
+          (r) => String(r.criteriaId) === String(criteria._id)
+        );
+        return rm?.marks ?? 0;
+      });
 
-      activitySheet.addRow(row);
+      sheet.addRow([student.rollNumber, student.name, attendance, ...rubricCols, total]);
     });
 
-    activitySheet.columns = [
+    sheet.columns = [
+      { width: 14 },
+      { width: 26 },
       { width: 12 },
-      { width: 25 },
-      { width: 12 },
-      ...((activity.rubric || []).map(() => ({ width: 18 })))
+      ...rubric.map(() => ({ width: 18 })),
+      { width: 14 },
     ];
   });
 

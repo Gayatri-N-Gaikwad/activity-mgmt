@@ -101,22 +101,22 @@ function AddMarks() {
         const initialMarks = {};
         studentsList.forEach((student) => {
           const existing = existingMarks.find(
-            (m) => (m.studentId?._id || m.studentId) === student._id,
+            (m) => String(m.studentId?._id || m.studentId) === String(student._id),
           );
           const existingActivity = existing?.activities.find(
-            (a) => (a.activityId?._id || a.activityId) === activityId,
+            (a) => String(a.activityId?._id || a.activityId) === String(activityId),
           );
 
           initialMarks[student._id] = {
             rubricMarks: rubric.map((r) => {
               const existingMark = existingActivity?.rubricMarks.find(
-                (rm) => (rm.criteriaId?._id || rm.criteriaId) === r._id,
+                (rm) => String(rm.criteriaId?._id || rm.criteriaId) === String(r._id),
               );
               return {
                 criteriaId: r._id,
                 name: r.name,
                 maxMarks: r.maxMarks,
-                marks: existingMark?.marks || 0,
+                marks: existingMark?.marks ?? "",
               };
             }),
             attendance: existingActivity?.attendance || "Present",
@@ -325,9 +325,18 @@ function AddMarks() {
             rel="noopener noreferrer"
           >
             <i className="fa fa-download" style={{ marginRight: 8 }}></i>
-            Download Template
+            Download Editable Template
           </a>
         </div>
+
+        <div className="status-alert status-alert-info" style={{ marginBottom: "16px" }}>
+          Download the sheet, edit marks there, and re-upload it to update existing values. The table below is read-only.
+        </div>
+        {activity.rubric.length === 0 && (
+          <div className="status-alert status-alert-warn" style={{ marginBottom: "16px" }}>
+            No rubric criteria are configured for this activity. Excel upload will save attendance only until rubric or mark subdivisions are added.
+          </div>
+        )}
 
         {students.length === 0 ? (
           <p className="muted" style={{ padding: "20px", textAlign: "center", background: "#f8fbff", borderRadius: "8px" }}>No students enrolled for this activity.</p>
@@ -357,15 +366,7 @@ function AddMarks() {
                       </td>
                       {data.rubricMarks.map((r, idx) => (
                         <td key={r.criteriaId}>
-                          <input
-                            type="number"
-                            value={r.marks}
-                            onChange={(e) =>
-                              handleRubricChange(student._id, idx, e.target.value)
-                            }
-                            min="0"
-                            max={r.maxMarks}
-                            disabled={data.attendance === "Absent" || uploading}
+                          <div
                             style={{
                               width: 80,
                               padding: "8px",
@@ -374,35 +375,33 @@ function AddMarks() {
                               textAlign: "center",
                               borderRadius: "6px",
                               border: "1px solid #dbe4f1",
-                              opacity:
-                                data.attendance === "Absent" || uploading ? 0.5 : 1,
-                              cursor:
-                                data.attendance === "Absent" || uploading
-                                  ? "not-allowed"
-                                  : "auto",
+                              background: "#f8fbff",
+                              color: data.attendance === "Absent" ? "#9ca3af" : "#111827",
+                              minHeight: "38px",
                             }}
-                          />
+                          >
+                            {r.marks === "" || r.marks === null || r.marks === undefined ? "" : r.marks}
+                          </div>
                         </td>
                       ))}
                       <td>
-                        <select
-                          value={data.attendance}
-                          onChange={(e) =>
-                            handleAttendanceChange(student._id, e.target.value)
-                          }
+                        <div
                           className="status-select"
                           style={{
                             margin: "0 auto",
                             display: "block",
+                            textAlign: "center",
                             background: data.attendance === "Present" ? "#e8f9ef" : "#fce8e8",
                             color: data.attendance === "Present" ? "#147a4c" : "#c9404d",
                             border: "none",
-                            fontWeight: "bold"
+                            fontWeight: "bold",
+                            padding: "8px 12px",
+                            borderRadius: "8px",
+                            minWidth: "88px"
                           }}
                         >
-                          <option value="Present">Present</option>
-                          <option value="Absent">Absent</option>
-                        </select>
+                          {data.attendance}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -412,13 +411,6 @@ function AddMarks() {
           </div>
         )}
         <div className="form-actions" style={{ marginTop: 24, display: "flex", gap: "12px" }}>
-          <button
-            className="btn btn-primary"
-            onClick={submitAllMarks}
-            style={{ padding: "10px 20px" }}
-          >
-            Save All Marks
-          </button>
           <button
             className="btn btn-outline"
             onClick={() => navigate("/activities")}
