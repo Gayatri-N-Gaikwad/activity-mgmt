@@ -93,13 +93,22 @@ function CreateActivity() {
         let sum = 0;
 
         for (const s of markSubdivisions) {
-          if (!s.title || !s.marks) {
-            showToast("error", "All subdivision fields are required");
+          const trimmedTitle = s.title ? s.title.trim() : "";
+          
+          // Validate subdivision name is not empty
+          if (!trimmedTitle) {
+            showToast("error", "All subdivision names are required");
             return;
           }
+          
+          if (!s.marks) {
+            showToast("error", "All subdivision marks are required");
+            return;
+          }
+          
           const m = Number(s.marks);
           if (!Number.isFinite(m) || m <= 0) {
-            showToast("error", "Subdivision marks must be valid numbers");
+            showToast("error", "Subdivision marks must be valid positive numbers");
             return;
           }
           sum += m;
@@ -113,8 +122,9 @@ function CreateActivity() {
           return;
         }
 
+        // Transform subdivisions: ensure titles are trimmed and not empty
         subdivisionPayload = markSubdivisions.map((s) => ({
-          title: s.title,
+          title: s.title.trim(),
           marks: Number(s.marks),
         }));
       }
@@ -228,30 +238,30 @@ function CreateActivity() {
 
             <div className="breakdown-list">
               {markSubdivisions.map((row, idx) => (
-                <div key={idx} className="breakdown-row">
-                  <input
-                    placeholder="Subtopic / Component"
-                    value={row.title}
-                    onChange={(e) =>
-                      updateSubdivision(idx, "title", e.target.value)
-                    }
-                  />
-                  <input
-                    type="number"
-                    min="1"
-                    placeholder="Marks"
-                    value={row.marks}
-                    onChange={(e) =>
-                      updateSubdivision(idx, "marks", e.target.value)
-                    }
-                    className="marks-input"
-                  />
-                  {markSubdivisions.length > 1 && (
-                    <button type="button" className="btn-remove" onClick={() => removeSubdivision(idx)}>
-                      ×
-                    </button>
-                  )}
-                </div>
+                    <div key={idx} className="breakdown-row">
+                      <input
+                        placeholder="Subtopic / Component"
+                        value={row.title}
+                        onChange={(e) =>
+                          updateSubdivision(idx, "title", e.target.value)
+                        }
+                      />
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="Marks"
+                        value={row.marks}
+                        onChange={(e) =>
+                          updateSubdivision(idx, "marks", e.target.value)
+                        }
+                        className="marks-input"
+                      />
+                      {markSubdivisions.length > 1 && (
+                        <button type="button" className="btn-remove" onClick={() => removeSubdivision(idx)}>
+                          ×
+                        </button>
+                      )}
+                    </div>
               ))}
             </div>
 
@@ -260,8 +270,7 @@ function CreateActivity() {
             </button>
 
             <small style={{ color: "#666" }}>
-              Breakdown is for display only. Faculty will enter total marks
-              later.
+              Breakdown is optional. If not provided, a default "Total Marks" subdivision will be created.
             </small>
           </div>
         )}

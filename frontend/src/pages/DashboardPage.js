@@ -19,6 +19,11 @@ function DashboardPage() {
 
   const [refreshKey, setRefreshKey] = useState(0);
 
+  const toRollNumber = (value) => {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : 0;
+  };
+
   // Normalize activityId whether it's populated or plain string/ObjectId
   const getActivityId = (raw) => {
     if (!raw) return null;
@@ -53,7 +58,9 @@ function DashboardPage() {
 
           // fetch students
           const resStudents = await API.get(`/activities/class/${cls._id}/students`);
-          studentMap[cls._id] = resStudents.data.students || [];
+          studentMap[cls._id] = [...(resStudents.data.students || [])].sort(
+            (a, b) => toRollNumber(a.rollNumber) - toRollNumber(b.rollNumber)
+          );
 
           // fetch marks for each subject and calculate activity max marks
           for (const sub of subjectMap[cls._id]) {
@@ -122,7 +129,11 @@ function DashboardPage() {
         }
 
         setSubjects(subjectMap);
-        setStudents(Object.values(studentMap).flat());
+        setStudents(
+          Object.values(studentMap)
+            .flat()
+            .sort((a, b) => toRollNumber(a.rollNumber) - toRollNumber(b.rollNumber))
+        );
         setMarksData(marksMap);
         setActivityMaxMarks(maxMarksMap);
       } catch (err) {
@@ -332,7 +343,7 @@ function DashboardPage() {
             // Convert IDs to strings for consistent comparison
             const classStudents = students.filter((s) =>
               (s.year === cls.year && s.division === cls.division) || String(s.classId) === String(cls._id)
-            );
+            ).sort((a, b) => toRollNumber(a.rollNumber) - toRollNumber(b.rollNumber));
             if (!classStudents.length) return null;
 
             const subjectMaxMarks = activityMaxMarks[String(sub._id)] || 0;

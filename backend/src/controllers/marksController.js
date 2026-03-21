@@ -19,21 +19,27 @@ const getOrCreateRubricCriteria = async (activityId) => {
 
   const subdivisions = await ActivityMarkSubdivision.find({ activityId })
     .sort({ createdAt: 1 })
-    .select("name maxMarks");
+    .select("title maxMarks");
 
   if (!subdivisions.length) {
     return [];
   }
 
   const createdCriteria = await RubricCriteria.insertMany(
-    subdivisions.map((subdivision) => ({
+    subdivisions.map((subdivision, index) => ({
       activityId,
-      name: subdivision.name,
+      // Map 'title' from ActivityMarkSubdivision to 'name' in RubricCriteria
+      name: (subdivision.title && subdivision.title.trim()) ? subdivision.title.trim() : `Criteria ${index + 1}`,
       maxMarks: subdivision.maxMarks
     }))
   );
 
   return createdCriteria;
+};
+
+const toRollNumber = (value) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
 };
 
 
@@ -330,6 +336,12 @@ export const getMarksByClassSubject = async (req, res) => {
       }
     });
 
+    docs.sort((a, b) => {
+      const rollA = toRollNumber(a?.studentId?.rollNumber);
+      const rollB = toRollNumber(b?.studentId?.rollNumber);
+      return rollA - rollB;
+    });
+
     res.json({ success: true, marks: docs });
 
   } catch (err) {
@@ -388,6 +400,8 @@ export const downloadActivityMarks = async (req, res) => {
           attendance: a.attendance
         }))
     }));
+
+      students.sort((a, b) => toRollNumber(a.rollNumber) - toRollNumber(b.rollNumber));
 
     const activitiesData = [{
       _id: activity._id,
@@ -452,6 +466,8 @@ export const downloadMultipleActivitiesMarks = async (req, res) => {
       rollNumber: mark.studentId.rollNumber,
       activities: mark.activities
     }));
+
+    students.sort((a, b) => toRollNumber(a.rollNumber) - toRollNumber(b.rollNumber));
 
     // Transform activities data
     const activitiesData = activities.map((activity) => ({

@@ -148,9 +148,10 @@ export const createActivity = async (req, res) => {
       assignmentId,
     });
 
-    /* ---------------- Save mark subdivisions (DISPLAY ONLY) ---------------- */
+    /* ---------------- Save mark subdivisions (ENSURE NEVER EMPTY) ---------------- */
 
     if (subdivisionsToSave.length > 0) {
+      // User provided subdivisions
       const subdivisionDocs = subdivisionsToSave.map((s) => ({
         activityId: activity._id,
         title: s.title,
@@ -158,6 +159,13 @@ export const createActivity = async (req, res) => {
       }));
 
       await ActivityMarkSubdivision.insertMany(subdivisionDocs);
+    } else {
+      // No subdivisions provided → Create default "Total Marks" subdivision
+      await ActivityMarkSubdivision.create({
+        activityId: activity._id,
+        title: "Total Marks",
+        maxMarks: totalMarks,
+      });
     }
 
     /* ---------------- Send creation notification email ---------------- */
@@ -840,7 +848,14 @@ export const getStudentsByClass = async (req, res) => {
 
     const students = await Student.find({ year: classDoc.year, division: classDoc.division })
       .select("name rollNumber year division _id")
+      .sort({ rollNumber: 1 })
       .lean();
+
+    students.sort((a, b) => {
+      const rollA = Number(a.rollNumber || 0);
+      const rollB = Number(b.rollNumber || 0);
+      return rollA - rollB;
+    });
 
     res.json({ students: students || [] });
   } catch (err) {

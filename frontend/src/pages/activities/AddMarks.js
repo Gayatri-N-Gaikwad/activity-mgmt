@@ -12,6 +12,11 @@ function AddMarks() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
+  const toRollNumber = (value) => {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : 0;
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -72,7 +77,9 @@ function AddMarks() {
 
         // Fetch students by year and division
         const resStudents = await API.get(`/students/by-year-division/${year}/${division}`);
-        const studentsList = resStudents.data?.students || [];
+        const studentsList = [...(resStudents.data?.students || [])].sort(
+          (a, b) => toRollNumber(a.rollNumber) - toRollNumber(b.rollNumber)
+        );
 
         console.log("Fetched students:", studentsList.length, studentsList);
 
@@ -208,7 +215,7 @@ function AddMarks() {
         </div>
         {activity.rubric.length === 0 && (
           <div className="status-alert status-alert-warn" style={{ marginBottom: "16px" }}>
-            No rubric criteria are configured for this activity. Excel upload will save attendance only until rubric or mark subdivisions are added.
+            No user-defined subdivisions were configured. Using default "Total Marks" rubric. You can still upload marks via Excel.
           </div>
         )}
 

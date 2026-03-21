@@ -32,7 +32,6 @@ function normalizeHodPayload(raw = {}) {
     meta: raw.meta || { academicYears: [], divisions: [], subjects: [] },
     facultyStats: raw.facultyStats || [],
     subjectPerformance: raw.subjectPerformance || [],
-    facultyStudentAnalysis: raw.facultyStudentAnalysis || [],
     studentPerformanceTrend: raw.studentPerformanceTrend || [],
     passFail: raw.passFail || [],
     facultyWorkload: raw.facultyWorkload || [],
@@ -52,7 +51,6 @@ function HodDashboardCharts() {
     meta: { academicYears: [], divisions: [], subjects: [] },
     facultyStats: [],
     subjectPerformance: [],
-    facultyStudentAnalysis: [],
     studentPerformanceTrend: [],
     passFail: [],
     facultyWorkload: [],
@@ -60,7 +58,6 @@ function HodDashboardCharts() {
   });
 
   const [selectedFaculty, setSelectedFaculty] = useState("all");
-  const [selectedSubject, setSelectedSubject] = useState("all");
 
   const fetchHodStats = useCallback(async () => {
     try {
@@ -76,7 +73,6 @@ function HodDashboardCharts() {
         meta: { academicYears: [], divisions: [], subjects: [] },
         facultyStats: [],
         subjectPerformance: [],
-        facultyStudentAnalysis: [],
         studentPerformanceTrend: [],
         passFail: [],
         facultyWorkload: [],
@@ -106,35 +102,6 @@ function HodDashboardCharts() {
       })),
     ];
   }, [stats.facultyStats]);
-
-  const subjectOptions = useMemo(() => {
-    const scoped = stats.facultyStudentAnalysis.filter((row) => {
-      if (selectedFaculty === "all") return true;
-      return String(row.facultyId) === selectedFaculty;
-    });
-
-    const uniq = new Map();
-    scoped.forEach((row) => {
-      if (!uniq.has(String(row.subjectId))) {
-        uniq.set(String(row.subjectId), row.subjectName);
-      }
-    });
-
-    return [
-      { label: "All Subjects", value: "all" },
-      ...Array.from(uniq.entries()).map(([value, label]) => ({ value, label })),
-    ];
-  }, [selectedFaculty, stats.facultyStudentAnalysis]);
-
-  const studentDrillData = useMemo(() => {
-    return stats.facultyStudentAnalysis
-      .filter((row) => {
-        const facultyMatch = selectedFaculty === "all" || String(row.facultyId) === selectedFaculty;
-        const subjectMatch = selectedSubject === "all" || String(row.subjectId) === selectedSubject;
-        return facultyMatch && subjectMatch;
-      })
-      .map((row) => ({ studentName: row.studentName, marks: row.marks }));
-  }, [selectedFaculty, selectedSubject, stats.facultyStudentAnalysis]);
 
   const trendData = useMemo(() => {
     const periods = new Map();
@@ -170,7 +137,6 @@ function HodDashboardCharts() {
 
   const onFacultyChange = (value) => {
     setSelectedFaculty(value);
-    setSelectedSubject("all");
   };
 
   return (
@@ -347,41 +313,6 @@ function HodDashboardCharts() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard
-          title="Faculty-wise Student Analysis"
-          subtitle="Drill down by faculty and subject"
-          loading={loading}
-          hasData={studentDrillData.length > 0}
-          actions={
-            <div className="analytics-inline-filters">
-              <select value={selectedFaculty} onChange={(e) => onFacultyChange(e.target.value)}>
-                {facultyOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-              <select value={selectedSubject} onChange={(e) => setSelectedSubject(e.target.value)}>
-                {subjectOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          }
-        >
-          <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={studentDrillData}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="studentName" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="marks" fill="#7ea6f8" name="Marks" />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
       </div>
     </div>
   );

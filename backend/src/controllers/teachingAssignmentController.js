@@ -48,7 +48,15 @@ export const getStudentsByActivityClass = async (req, res) => {
     }
 
     const students = await Student.find({ year: assignment.year, division: assignment.division })
-      .select("name rollNumber year division");
+      .select("name rollNumber year division")
+      .sort({ rollNumber: 1 })
+      .lean();
+
+    students.sort((a, b) => {
+      const rollA = Number(a.rollNumber || 0);
+      const rollB = Number(b.rollNumber || 0);
+      return rollA - rollB;
+    });
 
     res.json({ students });
   } catch (err) {

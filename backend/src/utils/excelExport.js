@@ -1,5 +1,10 @@
 import ExcelJS from 'exceljs';
 
+const toRollNumber = (value) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
+};
+
 /**
  * Single-activity download (Activity List → download button).
  * Columns: Roll No | Name | Attendance | [sub1 /max] ... | Total Marks
@@ -7,6 +12,9 @@ import ExcelJS from 'exceljs';
 export const createMarksExcel = async (options) => {
   const { students, activities } = options;
   const activity = activities[0]; // single activity
+  const sortedStudents = [...(students || [])].sort(
+    (a, b) => toRollNumber(a.rollNumber) - toRollNumber(b.rollNumber)
+  );
 
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Marks');
@@ -26,7 +34,7 @@ export const createMarksExcel = async (options) => {
   headerRow.alignment = { horizontal: 'center', vertical: 'center' };
 
   // ---- DATA ROWS ----
-  students.forEach((student) => {
+  sortedStudents.forEach((student) => {
     const activityMarks = student.activities.find(
       (a) => String(a.activityId) === String(activity._id)
     );
@@ -64,6 +72,9 @@ export const createMarksExcel = async (options) => {
  */
 export const createCombinedMarksExcel = async (options) => {
   const { students, activities, subjectMaxMarks = 15 } = options;
+  const sortedStudents = [...(students || [])].sort(
+    (a, b) => toRollNumber(a.rollNumber) - toRollNumber(b.rollNumber)
+  );
 
   const workbook = new ExcelJS.Workbook();
 
@@ -84,7 +95,7 @@ export const createCombinedMarksExcel = async (options) => {
   sHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
   sHeader.alignment = { horizontal: 'center', vertical: 'center' };
 
-  students.forEach((student) => {
+  sortedStudents.forEach((student) => {
     const row = [student.rollNumber, student.name];
     let totalMarks = 0;
     let totalMaxMarks = 0;
@@ -135,7 +146,7 @@ export const createCombinedMarksExcel = async (options) => {
     hRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF70AD47' } };
     hRow.alignment = { horizontal: 'center', vertical: 'center' };
 
-    students.forEach((student) => {
+    sortedStudents.forEach((student) => {
       const am = student.activities.find(
         (a) => String(a.activityId) === String(activity._id)
       );
