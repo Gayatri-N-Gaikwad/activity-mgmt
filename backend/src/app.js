@@ -20,6 +20,7 @@ import rubricRoutes from "./routes/rubricRoutes.js"
 import studentSubjectMarksRoutes from "./routes/studentSubjectMarksRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import hodRoutes from "./routes/hodRoutes.js";
+import dashboardRoutes from "./routes/dashboardRoutes.js";
 
 import { startActivityCron } from "./cron/activityCron.js";
 
@@ -116,6 +117,7 @@ app.use("/api/rubric", rubricRoutes);
 app.use("/api/student-subject-marks", studentSubjectMarksRoutes); // Added route for student-subject-marks
 app.use("/api/admin", adminRoutes);
 app.use("/api/hod", hodRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 
 // --------------------

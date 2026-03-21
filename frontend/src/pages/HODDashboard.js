@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../services/api";
 import showToast from "../utils/toast";
+
+const HodDashboardCharts = lazy(() => import("./HodDashboardCharts"));
 
 function HODDashboard() {
   const navigate = useNavigate();
@@ -105,9 +107,10 @@ function HODDashboard() {
       </div>
 
       <div className="admin-layout">
-        <div className="admin-content-area card" style={{ padding: "24px" }}>
-          {!year ? (
-            <>
+        <div className="admin-content-area">
+          <div className="card" style={{ padding: "24px" }}>
+            {!year ? (
+              <>
               <div className="activities-header" style={{ marginBottom: "24px" }}>
                 <div>
                   <h2 style={{ marginTop: 0 }}>Subject Allocations</h2>
@@ -243,8 +246,13 @@ function HODDashboard() {
                   </table>
                 </div>
               )}
-            </>
-          )}
+              </>
+            )}
+          </div>
+
+          <Suspense fallback={<div className="card" style={{ marginTop: 20 }}>Loading analytics...</div>}>
+            <HodDashboardCharts />
+          </Suspense>
         </div>
       </div>
     </div>

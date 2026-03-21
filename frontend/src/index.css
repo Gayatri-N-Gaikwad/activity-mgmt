@@ -1180,3 +1180,137 @@ tr:hover td {
 .details-card table {
   width: 100%;
 }
+
+.analytics-section {
+  margin-top: 18px;
+}
+
+.analytics-filter-bar {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.analytics-filter-item {
+  min-width: 180px;
+  flex: 1 1 180px;
+}
+
+.analytics-filter-item label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: #4f6378;
+  font-weight: 600;
+}
+
+.analytics-filter-item select {
+  margin: 0;
+  height: 40px;
+}
+
+.analytics-grid {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.analytics-grid-two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.analytics-grid-three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.analytics-chart-card {
+  min-height: 360px;
+}
+
+.analytics-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.analytics-card-head h3 {
+  margin: 0;
+  color: #173e68;
+}
+
+.analytics-card-head p {
+  margin: 6px 0 0;
+}
+
+.analytics-card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.analytics-inline-filters {
+  display: flex;
+  gap: 8px;
+}
+
+.analytics-inline-filters select {
+  margin: 0;
+  min-width: 150px;
+  height: 36px;
+}
+
+.analytics-chart-body {
+  width: 100%;
+  min-height: 280px;
+}
+
+.chart-skeleton {
+  display: grid;
+  gap: 10px;
+  padding-top: 8px;
+}
+
+.chart-skeleton-bar {
+  height: 74px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #eff4fc 25%, #f8fbff 50%, #eff4fc 75%);
+  background-size: 200% 100%;
+  animation: chartPulse 1.3s infinite;
+}
+
+.chart-skeleton-bar.short {
+  height: 48px;
+}
+
+.chart-empty {
+  min-height: 280px;
+  display: grid;
+  place-items: center;
+  color: #7a8da3;
+  border: 1px dashed #d8e2f0;
+  border-radius: 10px;
+  background: #fbfdff;
+  font-weight: 600;
+}
+
+@keyframes chartPulse {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (max-width: 1100px) {
+  .analytics-grid-two {
+    grid-template-columns: 1fr;
+  }
+
+  .analytics-grid-three {
+    grid-template-columns: 1fr;
+  }
+}

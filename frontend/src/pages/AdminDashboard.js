@@ -11,6 +11,7 @@ import {
   uploadStudentsExcel
 } from "../services/teachingAssignmentApi";
 import showToast from "../utils/toast";
+import AdminDashboardCharts from "./AdminDashboardCharts";
 
 import { setAcademicYear as setAcademicYearApi, getActiveAcademicYear } from "../services/teachingAssignmentApi";
 
@@ -345,6 +346,14 @@ function AdminDashboard() {
           >
             <i className="fa fa-user-tie"></i>
             <span>Assign Faculty</span>
+          </button>
+
+          <button
+            className={`admin-nav-btn ${activeTab === "analytics" ? "active" : ""}`}
+            onClick={() => setActiveTab("analytics")}
+          >
+            <i className="fa fa-chart-column"></i>
+            <span>Analytics</span>
           </button>
 
           <hr style={{ border: "none", borderTop: "1px dashed #e2e8f0", margin: "12px 0", opacity: 0.6 }} />
@@ -737,6 +746,8 @@ function AdminDashboard() {
               </div>
             </div>
           )}
+
+          {activeTab === "analytics" && <AdminDashboardCharts />}
         </div>
       </div>
     </div>

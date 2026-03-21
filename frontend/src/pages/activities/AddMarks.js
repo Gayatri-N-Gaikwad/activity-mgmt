@@ -10,8 +10,6 @@ function AddMarks() {
   const [students, setStudents] = useState([]);
   const [marksData, setMarksData] = useState({});
   const [loading, setLoading] = useState(true);
-  const [subjectId, setSubjectId] = useState(null);
-  const [classId, setClassId] = useState(null);
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
@@ -72,14 +70,6 @@ function AddMarks() {
           return;
         }
 
-        const subjIdStr = String(subjId);
-        setSubjectId(subjIdStr);
-
-        // Get classId for marks API (lookup by year-division)
-        const resClass = await API.get(`/classes/by-year-division/${year}/${division}`);
-        const clsIdStr = resClass.data?.class?._id ? String(resClass.data.class._id) : null;
-        setClassId(clsIdStr);
-
         // Fetch students by year and division
         const resStudents = await API.get(`/students/by-year-division/${year}/${division}`);
         const studentsList = resStudents.data?.students || [];
@@ -136,122 +126,6 @@ function AddMarks() {
 
     fetchData();
   }, [activityId]);
-
-  const handleRubricChange = (studentId, index, value) => {
-    const numericValue = value === "" ? 0 : Number(value);
-    setMarksData((prev) => {
-      const newRubric = [...prev[studentId].rubricMarks];
-      newRubric[index].marks = numericValue;
-      return {
-        ...prev,
-        [studentId]: { ...prev[studentId], rubricMarks: newRubric },
-      };
-    });
-  };
-
-  const handleAttendanceChange = (studentId, value) => {
-    setMarksData((prev) => {
-      const updated = { ...prev[studentId], attendance: value };
-
-      // If marking as absent, clear all marks
-      if (value === "Absent") {
-        updated.rubricMarks = updated.rubricMarks.map((r) => ({
-          ...r,
-          marks: 0,
-        }));
-      }
-
-      return {
-        ...prev,
-        [studentId]: updated,
-      };
-    });
-  };
-
-  const submitAllMarks = async () => {
-    const violations = [];
-
-    Object.entries(marksData).forEach(([studentId, payload]) => {
-      // Check if student is marked absent but has marks entered
-      if (payload.attendance === "Absent") {
-        const hasMarks = payload.rubricMarks.some((r) => r.marks > 0);
-        if (hasMarks) {
-          const student = students.find((s) => s._id === studentId);
-          violations.push(
-            `${student?.name || "Student"} is marked as Absent but has marks entered`,
-          );
-        }
-        return; // Skip further validation for absent students
-      }
-
-      // Validate marks for present students
-      payload?.rubricMarks?.forEach((r) => {
-        const entered = Number(r.marks ?? 0);
-        const allowed = Number(r.maxMarks ?? 0);
-        if (entered > allowed) {
-          const student = students.find((s) => s._id === studentId);
-          violations.push(
-            `${student?.name || "Student"} → ${r.name || "Criteria"} (${entered}/${allowed})`,
-          );
-        }
-      });
-    });
-
-    if (violations.length) {
-      showToast(
-        "error",
-        `Marks exceed allowed values:\n${violations.slice(0, 3).join("\n")}${violations.length > 3 ? "…" : ""
-        }`,
-      );
-      return;
-    }
-
-    try {
-      for (const studentId of Object.keys(marksData)) {
-        const payload = marksData[studentId];
-        const data = {
-          rubricMarks: payload.rubricMarks.map((r) => ({
-            criteriaId: r.criteriaId,
-            marks: r.marks,
-          })),
-          attendance: payload.attendance || "Present",
-          subjectId,
-          classId,
-        };
-
-        if (payload.exists) {
-          await API.put(`/marks/update/${payload.id}/${activityId}`, {
-            rubricMarks: data.rubricMarks,
-            attendance: data.attendance,
-          });
-        } else {
-          const res = await API.post(`/marks/add`, {
-            studentId,
-            activityId,
-            ...data,
-          });
-          setMarksData((prev) => ({
-            ...prev,
-            [studentId]: {
-              ...prev[studentId],
-              exists: true,
-              id: res.data._id || res.data.mark?._id,
-            },
-          }));
-        }
-      }
-
-      // Update activity status to "Marks_Updated"
-      await API.put(`/activities/update/${activityId}`, {
-        status: "Marks_Updated",
-      });
-
-      showToast("success", "All marks saved and activity status updated");
-    } catch (err) {
-      console.error(err);
-      showToast("error", err.response?.data?.error || "Error saving marks");
-    }
-  };
 
   const handleExcelUpload = async (e) => {
     const file = e.target.files[0];
