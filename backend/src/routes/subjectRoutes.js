@@ -1,6 +1,7 @@
 import express from "express";
 import Subject from "../models/Subject.js";
 
+
 const router = express.Router();
 
 // Add a new subject
@@ -47,6 +48,33 @@ router.get("/:id", async (req, res) => {
     console.error("Error fetching subject:", err);
     res.status(500).json({ error: "Server error" });
   }
+});
+
+
+
+
+router.put("/assign-coordinator/:subjectId", async (req, res) => {
+
+  try {
+
+    const { coordinatorId } = req.body;
+
+    if(!coordinatorId){
+      return res.status(400).json({message:"Coordinator ID required"});
+    }
+
+    const subject = await Subject.findByIdAndUpdate(
+      req.params.subjectId,
+      { coordinator: coordinatorId },
+      { new: true }
+    );
+
+    res.json(subject);
+
+  } catch (error) {
+    res.status(500).json(error);
+  }
+
 });
 
 export default router;

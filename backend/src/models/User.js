@@ -19,7 +19,7 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["Faculty", "HOD", "Coordinator", "admin"],
+      enum: ["Faculty", "HOD", "admin"],  // coordinator role removed (each subject will have a coordinator)
       default: "Faculty",
     },
   },

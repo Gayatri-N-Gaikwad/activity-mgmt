@@ -440,3 +440,74 @@ export const getHodDashboardStats = async (req, res) => {
     return res.status(500).json({ error: "Unable to load HOD dashboard stats" });
   }
 };
+
+
+// ************************ Coordinator *********************************
+export const getCoordinatorDashboardStats = async (req, res) => {
+
+  try {
+
+    const userId = req.user.id;
+    const role = req.user.role;
+
+    // ADMIN → all activities
+    if (role === "admin") {
+
+      const activities = await Activity.find()
+        .populate("coordinatorId", "name email")
+        .populate({
+          path: "assignmentId",
+          populate: { path: "subjectId", select: "name" }
+        });
+
+      return res.json(activities);
+
+    }
+
+    // Step 1: subjects coordinated by this user
+    const coordinatorSubjects = await Subject.find({
+      coordinator: userId
+    }).select("_id");
+
+    if (coordinatorSubjects.length > 0) {
+
+      // Step 2: assignments for those subjects
+      const assignments = await TeachingAssignment.find({
+        subjectId: { $in: coordinatorSubjects.map(s => s._id) }
+      }).select("_id");
+
+      // Step 3: activities for those assignments
+      const activities = await Activity.find({
+        assignmentId: { $in: assignments.map(a => a._id) }
+      })
+      .populate("coordinatorId", "name email")
+      .populate({
+        path: "assignmentId",
+        populate: { path: "subjectId", select: "name" }
+      });
+
+      return res.json(activities);
+    }
+
+    // Normal faculty → activities conducted by them
+    const activities = await Activity.find({
+      coordinatorId: userId
+    }).populate({
+      path: "assignmentId",
+      populate: { path: "subjectId", select: "name" }
+    });
+
+    res.json(activities);
+
+  } catch (error) {
+
+    console.error("Coordinator analytics error:", error);
+
+    res.status(500).json({
+      message: "Error fetching analytics",
+      error: error.message
+    });
+
+  }
+
+};
