@@ -24,6 +24,9 @@ import AdminActivityList from "./pages/activities/AdminActivityList";
 import HODDashboard from "./pages/HODDashboard";
 import HODActivityList from "./pages/HODActivityList";
 
+// Subject Coordinator
+import SubjectAnalytics from "./pages/SubjectAnalytics";
+
 function App() {
   return (
     <Router>
@@ -50,6 +53,16 @@ function App() {
             element={
               <ProtectedRoute>
                 <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ⭐ Subject Coordinator Analytics */}
+          <Route
+            path="/subject-analytics"
+            element={
+              <ProtectedRoute>
+                <SubjectAnalytics />
               </ProtectedRoute>
             }
           />

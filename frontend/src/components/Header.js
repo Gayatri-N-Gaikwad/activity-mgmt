@@ -19,7 +19,6 @@ function Header() {
         {/* ================= NAVBAR ================= */}
         <div className="header-center">
           <nav className="main-nav">
-
             {/* Home visible to everyone */}
             <Link className="nav-link" to="/">
               <i className="fa fa-home" style={{ marginRight: 6 }}></i>
@@ -48,7 +47,6 @@ function Header() {
               </Link>
             )}
 
-
             {/* Activities ONLY for non-admin roles */}
             {user && user.role !== "admin" && user.role !== "HOD" && (
               <Link className="nav-link" to="/activities">
@@ -57,6 +55,13 @@ function Header() {
               </Link>
             )}
 
+            {/* Subject Analytics for faculty (Coordinator) */}
+            {user && user.role !== "admin" && user.role !== "HOD" && (
+              <Link className="nav-link" to="/subject-analytics">
+                <i className="fa fa-chart-pie" style={{ marginRight: 6 }}></i>
+                Subject Analytics
+              </Link>
+            )}
           </nav>
         </div>
 

@@ -442,69 +442,182 @@ export const getHodDashboardStats = async (req, res) => {
 };
 
 
-// ************************ Coordinator *********************************
+// ************************ Coordinator Dashboard Analytics *********************************
+
 export const getCoordinatorDashboardStats = async (req, res) => {
 
   try {
 
+    // Logged-in user ID
     const userId = req.user.id;
-    const role = req.user.role;
 
-    // ADMIN → all activities
-    if (role === "admin") {
-
-      const activities = await Activity.find()
-        .populate("coordinatorId", "name email")
-        .populate({
-          path: "assignmentId",
-          populate: { path: "subjectId", select: "name" }
-        });
-
-      return res.json(activities);
-
-    }
-
-    // Step 1: subjects coordinated by this user
+    // ------------------------------------------------------------------
+    // 1️⃣ Find subjects where this user is the coordinator
+    // ------------------------------------------------------------------
     const coordinatorSubjects = await Subject.find({
       coordinator: userId
-    }).select("_id");
+    }).select("_id name");
 
-    if (coordinatorSubjects.length > 0) {
-
-      // Step 2: assignments for those subjects
-      const assignments = await TeachingAssignment.find({
-        subjectId: { $in: coordinatorSubjects.map(s => s._id) }
-      }).select("_id");
-
-      // Step 3: activities for those assignments
-      const activities = await Activity.find({
-        assignmentId: { $in: assignments.map(a => a._id) }
-      })
-      .populate("coordinatorId", "name email")
-      .populate({
-        path: "assignmentId",
-        populate: { path: "subjectId", select: "name" }
+    // If user is not coordinator of any subject
+    if (!coordinatorSubjects.length) {
+      return res.json({
+        meta: { divisions: [] },
+        lifecycle: [],
+        divisionActivity: [],
+        activityTrend: [],
+        facultyContribution: []
       });
-
-      return res.json(activities);
     }
 
-    // Normal faculty → activities conducted by them
+    // ------------------------------------------------------------------
+    // 2️⃣ Find teaching assignments for those subjects
+    // ------------------------------------------------------------------
+    const assignments = await TeachingAssignment.find({
+      subjectId: { $in: coordinatorSubjects.map(s => s._id) }
+    }).populate("subjectId", "name");
+
+    // Create quick lookup map for assignments
+    const assignmentMap = new Map(
+      assignments.map(a => [String(a._id), a])
+    );
+
+    // ------------------------------------------------------------------
+    // 3️⃣ Fetch activities for those assignments
+    // ------------------------------------------------------------------
     const activities = await Activity.find({
-      coordinatorId: userId
-    }).populate({
-      path: "assignmentId",
-      populate: { path: "subjectId", select: "name" }
+      assignmentId: { $in: assignments.map(a => a._id) }
+    })
+      .populate("coordinatorId", "name email") // needed for faculty contribution chart
+      .lean();
+
+    // ------------------------------------------------------------------
+    // 4️⃣ ANALYTICS COMPUTATION
+    // ------------------------------------------------------------------
+
+    // Activity lifecycle counters
+    const lifecycle = {
+      Scheduled: 0,
+      Conducted: 0,
+      Marks_Updated: 0
+    };
+
+    // Activities per division
+    const divisionMap = new Map();
+
+    // Monthly activity trend
+    const trendMap = new Map();
+
+    // Faculty contribution
+    const facultyMap = new Map();
+
+
+    // ------------------------------------------------------------------
+    // 5️⃣ Process each activity
+    // ------------------------------------------------------------------
+    activities.forEach(act => {
+
+      // -------------------------------
+      // Lifecycle analytics
+      // -------------------------------
+      if (lifecycle[act.status] !== undefined) {
+        lifecycle[act.status]++;
+      }
+
+      // -------------------------------
+      // Find related assignment
+      // -------------------------------
+      const assignment = assignmentMap.get(String(act.assignmentId));
+      if (!assignment) return;
+
+      const division = assignment.division;
+
+      // -------------------------------
+      // Division activity count
+      // -------------------------------
+      divisionMap.set(
+        division,
+        (divisionMap.get(division) || 0) + 1
+      );
+
+
+      // -------------------------------
+      // Monthly trend calculation
+      // -------------------------------
+      if (act.scheduleDate) {
+
+        const d = new Date(act.scheduleDate);
+
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+
+        trendMap.set(
+          key,
+          (trendMap.get(key) || 0) + 1
+        );
+      }
+
+
+      // -------------------------------
+      // Faculty contribution calculation
+      // -------------------------------
+      const facultyName = act.coordinatorId?.name || "Unknown";
+
+      facultyMap.set(
+        facultyName,
+        (facultyMap.get(facultyName) || 0) + 1
+      );
+
     });
 
-    res.json(activities);
+
+    // ------------------------------------------------------------------
+    // 6️⃣ Send final analytics response
+    // ------------------------------------------------------------------
+    return res.json({
+
+      // Metadata used for filters
+      meta: {
+        divisions: Array.from(new Set(assignments.map(a => a.division)))
+      },
+
+      // Activity lifecycle analytics
+      lifecycle: Object.entries(lifecycle).map(([stage, count]) => ({
+        stage,
+        count
+      })),
+
+      // Division-wise activity count
+      divisionActivity: Array.from(divisionMap.entries()).map(
+        ([division, count]) => ({
+          division,
+          count
+        })
+      ),
+
+      // Monthly activity trend
+      activityTrend: Array.from(trendMap.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([period, count]) => ({
+          period,
+          count
+        })),
+
+      // Faculty contribution analytics
+      facultyContribution: Array.from(facultyMap.entries()).map(
+        ([faculty, count]) => ({
+          faculty,
+          count
+        })
+      )
+
+    });
 
   } catch (error) {
 
+    // Error handling
     console.error("Coordinator analytics error:", error);
 
     res.status(500).json({
-      message: "Error fetching analytics",
+      message: "Error fetching coordinator analytics",
       error: error.message
     });
 
