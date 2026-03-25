@@ -41,7 +41,9 @@ function CoordinatorDashboardCharts() {
 
   if (loading) return <h2>Loading analytics...</h2>;
 
-  if (!stats || !stats.meta || !stats.meta.divisions?.length)
+  if (!stats) return <h2>Unable to load subject analytics</h2>;
+
+  if (stats.isCoordinator === false)
     return <h2>You are not a subject coordinator</h2>;
 
   return (

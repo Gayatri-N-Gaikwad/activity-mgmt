@@ -3,6 +3,8 @@ import StudentSubjectMarks from "../models/StudentSubjectMarks.js";
 import TeachingAssignment from "../models/TeachingAssignment.js";
 import Subject from "../models/Subject.js";
 import Student from "../models/Student.js";
+import mongoose from "mongoose";
+
 
 const toId = (value) => String(value || "");
 const toMonthKey = (dateValue) => {
@@ -449,7 +451,7 @@ export const getCoordinatorDashboardStats = async (req, res) => {
   try {
 
     // Logged-in user ID
-    const userId = req.user.id;
+    const userId = new mongoose.Types.ObjectId(req.user.id);
 
     // ------------------------------------------------------------------
     // 1️⃣ Find subjects where this user is the coordinator
@@ -461,6 +463,8 @@ export const getCoordinatorDashboardStats = async (req, res) => {
     // If user is not coordinator of any subject
     if (!coordinatorSubjects.length) {
       return res.json({
+        isCoordinator: false,
+        coordinatorSubjects: [],
         meta: { divisions: [] },
         lifecycle: [],
         divisionActivity: [],
@@ -573,6 +577,8 @@ export const getCoordinatorDashboardStats = async (req, res) => {
     // 6️⃣ Send final analytics response
     // ------------------------------------------------------------------
     return res.json({
+      isCoordinator: true,
+      coordinatorSubjects: coordinatorSubjects.map((s) => ({ _id: s._id, name: s.name })),
 
       // Metadata used for filters
       meta: {
