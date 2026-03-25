@@ -3,12 +3,13 @@ import mongoose from 'mongoose';
 const { Schema } = mongoose;
 
 const subjectSchema = new Schema({
-  name: { type: String, required: true },
   code: { type: String, required: true, unique: true },
-    coordinator: {
+  name: { type: String, required: true },
+  year: { type: String, required: true },
+  coordinator: {
     type: Schema.Types.ObjectId,
     ref: "User",
-    default: null,
+    required: true,
   },
 }, { timestamps: true });
 

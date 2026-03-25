@@ -13,10 +13,12 @@ export const addClass = async ({ year, division }) => {
 };
 
 //  Add new subject
-export const addSubject = async ({ name, code }) => {
+export const addSubject = async ({ name, code, year, coordinator }) => {
   const res = await API.post("/admin/addsubject", {
     name,
     code,
+    year,
+    coordinator,
   });
   return res.data;
 };
@@ -67,5 +69,15 @@ export const setAcademicYear = async (data) => {
 export const getActiveAcademicYear = async () => {
   const res = await API.get("/admin/academic-year/active");
   return res.data;
+};
+
+
+// Upload subjects from Excel
+export const uploadSubjectsExcel = (formData) => {
+  return API.post("/admin/subjects/upload", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data"
+    }
+  });
 };
 

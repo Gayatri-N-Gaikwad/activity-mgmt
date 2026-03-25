@@ -8,7 +8,8 @@ import {
   getAllClasses,
   getAllSubjects,
   getAllFaculties,
-  uploadStudentsExcel
+  uploadStudentsExcel,
+  uploadSubjectsExcel
 } from "../services/teachingAssignmentApi";
 import showToast from "../utils/toast";
 import AdminDashboardCharts from "./AdminDashboardCharts";
@@ -24,7 +25,7 @@ function AdminDashboard() {
     year: "",
     division: ""
   });
-  const [subject, setSubject] = useState({ name: "", code: "" });
+  const [subject, setSubject] = useState({ name: "", code: "", year: "", coordinator: "" });
 
   const [assignData, setAssignData] = useState({
     facultyId: "",
@@ -33,6 +34,7 @@ function AdminDashboard() {
   });
 
   const [studentFile, setStudentFile] = useState(null);
+  const [subjectFile, setSubjectFile] = useState(null);
   const [studentClassId, setStudentClassId] = useState("");
 
   const [classes, setClasses] = useState([]);
@@ -67,54 +69,83 @@ function AdminDashboard() {
 
   const fetchAllocationData = async (year) => {
     try {
-      const assignmentsRes = await getAllTeachingAssignments();
-      const allAssignments = assignmentsRes.data || assignmentsRes;
+      const normalizeYear = (value) => {
+        const y = String(value || "").trim().toUpperCase();
+        if (y === "TY") return "TE";
+        return y;
+      };
 
-      // Filter assignments for the selected year
-      const yearAssignments = allAssignments.filter(a => a.year === year);
+      const [assignmentsRes, subjectsRes] = await Promise.all([
+        getAllTeachingAssignments(),
+        getAllSubjects(),
+      ]);
 
-      // Group by subject and create table data
+      const allAssignments = assignmentsRes.data || assignmentsRes || [];
+      const allSubjects = subjectsRes || [];
+      const selectedYear = normalizeYear(year);
+
+      // Include assignments for selected year
+      const yearAssignments = allAssignments.filter(
+        (a) => normalizeYear(a.year) === selectedYear
+      );
+
+      // Include all subjects for selected year, even when no faculty is assigned
+      const yearSubjects = allSubjects.filter(
+        (s) => normalizeYear(s.year) === selectedYear
+      );
+
       const subjectMap = new Map();
 
-      // Only add subjects that have assignments for this year
-      yearAssignments.forEach(assignment => {
+      // Seed map with all subjects in selected year (unassigned by default)
+      yearSubjects.forEach((subject) => {
+        const subjectId = subject._id;
+        subjectMap.set(subjectId, {
+          subjectId,
+          subjectName: subject.name,
+          subjectCode: subject.code,
+          div9: null,
+          div10: null,
+          div11: null,
+          div9Info: null,
+          div10Info: null,
+          div11Info: null,
+        });
+      });
+
+      // Overlay faculty assignment data where available
+      yearAssignments.forEach((assignment) => {
         const subjectId = assignment.subjectId?._id || assignment.subjectId;
-        const subjectName = assignment.subjectId?.name || 'Unknown';
-        const subjectCode = assignment.subjectId?.code || '';
-        const division = assignment.division;
-        const facultyName = assignment.facultyId?.name || 'Not Assigned';
+        const subjectName = assignment.subjectId?.name || "Unknown";
+        const subjectCode = assignment.subjectId?.code || "";
+        const division = String(assignment.division || "").toLowerCase();
+        const facultyName = assignment.facultyId?.name || "Not Assigned";
         const facultyId = assignment.facultyId?._id;
 
-        console.log('Assignment:', { subjectName, division, facultyName, year }); // Debug log
-
-        // Initialize subject if not exists
         if (!subjectMap.has(subjectId)) {
           subjectMap.set(subjectId, {
-            subjectId: subjectId,
-            subjectName: subjectName,
-            subjectCode: subjectCode,
+            subjectId,
+            subjectName,
+            subjectCode,
             div9: null,
             div10: null,
             div11: null,
             div9Info: null,
             div10Info: null,
-            div11Info: null
+            div11Info: null,
           });
         }
 
-        // Set faculty for the division - handle different division formats
         const subjectData = subjectMap.get(subjectId);
 
-        // Match divisions: "09", "9", "Div 9", etc.
-        if (division === '09' || division === '9' || division.toLowerCase().includes('9')) {
+        if (division === "09" || division === "9" || division.includes("9")) {
           subjectData.div9 = facultyName;
-          subjectData.div9Info = { facultyId, division };
-        } else if (division === '10' || division.toLowerCase().includes('10')) {
+          subjectData.div9Info = { facultyId, division: assignment.division };
+        } else if (division === "10" || division.includes("10")) {
           subjectData.div10 = facultyName;
-          subjectData.div10Info = { facultyId, division };
-        } else if (division === '11' || division.toLowerCase().includes('11')) {
+          subjectData.div10Info = { facultyId, division: assignment.division };
+        } else if (division === "11" || division.includes("11")) {
           subjectData.div11 = facultyName;
-          subjectData.div11Info = { facultyId, division };
+          subjectData.div11Info = { facultyId, division: assignment.division };
         }
       });
 
@@ -201,15 +232,17 @@ function AdminDashboard() {
 
   // Add Subject
   const handleAddSubject = async () => {
-    if (!subject.name || !subject.code) {
-      showToast("error", "Enter subject name and code");
+    const { name, code, year, coordinator } = subject;
+    
+    if (!name || !code || !year || !coordinator) {
+      showToast("error", "All fields are required: name, code, year, and coordinator");
       return;
     }
 
     try {
       await addSubject(subject);
       showToast("success", "Subject added successfully");
-      setSubject({ name: "", code: "" });
+      setSubject({ name: "", code: "", year: "", coordinator: "" });
     } catch (err) {
       showToast("error", "Error adding subject");
     }
@@ -262,6 +295,49 @@ function AdminDashboard() {
       setStudentClassId("");
     } catch (err) {
       showToast("error", "Failed to upload students");
+    }
+  };
+
+  // Upload subject data
+  const handleSubjectUpload = async () => {
+    if (!subjectFile) {
+      showToast("error", "Please select an Excel file");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", subjectFile);
+
+    try {
+      const response = await uploadSubjectsExcel(formData);
+      const { successCount, duplicateCount, errorCount, errors, validationErrors, createdSubjects } = response.data;
+
+      if (errorCount > 0 || (validationErrors && validationErrors.length > 0)) {
+        // Show detailed error information
+        let errorMessage = `UPLOAD FAILED: ${successCount} created, ${errorCount || (validationErrors && validationErrors.length)} error(s)\n\n`;
+        
+        const allErrors = errors || validationErrors || [];
+        allErrors.slice(0, 3).forEach(err => {
+          errorMessage += `Row ${err.row}: ${err.error || err.message}\n`;
+        });
+        
+        if (allErrors.length > 3) {
+          errorMessage += `...and ${allErrors.length - 3} more errors`;
+        }
+        
+        showToast("error", errorMessage);
+        return;
+      }
+
+      let message = `SUCCESS: ${successCount} subject(s) uploaded!`;
+      if (duplicateCount > 0) {
+        message += ` (${duplicateCount} duplicates skipped)`;
+      }
+
+      showToast("success", message);
+      setSubjectFile(null);
+    } catch (err) {
+      showToast("error", err?.response?.data?.error || "Failed to upload subjects");
     }
   };
 
@@ -322,6 +398,14 @@ function AdminDashboard() {
           >
             <i className="fa fa-table"></i>
             <span>Subject Allocations</span>
+          </button>
+
+          <button
+            className={`admin-nav-btn ${activeTab === "uploadSubjects" ? "active" : ""}`}
+            onClick={() => setActiveTab("uploadSubjects")}
+          >
+            <i className="fa fa-file-excel"></i>
+            <span>Upload Subjects</span>
           </button>
 
           <button
@@ -487,6 +571,57 @@ function AdminDashboard() {
                   </div>
                 </>
               )}
+            </div>
+          )}
+
+          {activeTab === "uploadSubjects" && (
+            <div className="card create-activity-card" style={{ maxWidth: "700px", margin: "0 auto" }}>
+              <div className="form-brand">Bulk Import</div>
+              <h2 className="form-title">Upload Subjects from Excel</h2>
+              <p className="form-subtitle">Upload multiple subjects at once using an Excel file.</p>
+
+              <div className="create-form">
+                <div className="form-row">
+                  <label>Select Excel File</label>
+                  <div style={{ position: "relative", display: "inline-block", width: "100%" }}>
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={(e) => setSubjectFile(e.target.files?.[0] || null)}
+                      style={{
+                        padding: "12px",
+                        border: "2px dashed #e2e8f0",
+                        borderRadius: "8px",
+                        width: "100%",
+                        cursor: "pointer",
+                        boxSizing: "border-box"
+                      }}
+                    />
+                    <span style={{ color: "#666", fontSize: "12px", marginTop: "8px", display: "block" }}>
+                      {subjectFile ? `Selected: ${subjectFile.name}` : "Choose an .xlsx or .xls file"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="status-alert status-alert-info" style={{ marginTop: "16px", display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                  <i className="fa fa-info-circle"></i>
+                  <div>
+                    <strong>Expected Excel Format (All fields required):</strong>
+                    <div style={{ marginTop: "8px", fontSize: "13px", lineHeight: "1.6" }}>
+                      <p style={{ margin: "4px 0" }}>Column 1: <b>code</b> (e.g., CS101) *</p>
+                      <p style={{ margin: "4px 0" }}>Column 2: <b>name</b> (e.g., Data Structures) *</p>
+                      <p style={{ margin: "4px 0" }}>Column 3: <b>year</b> (e.g., SY, TE, BE) *</p>
+                      <p style={{ margin: "4px 0" }}>Column 4: <b>coordinator</b> (user email or ID) *</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="form-actions" style={{ marginTop: "24px" }}>
+                  <button className="btn btn-primary" onClick={handleSubjectUpload} disabled={!subjectFile}>
+                    <i className="fa fa-upload" style={{ marginRight: "8px" }}></i> Upload Subjects
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -668,6 +803,30 @@ function AdminDashboard() {
                       </span>
                     </div>
                   </div>
+
+                <div className="form-row">
+                  <label>Year</label>
+                  <select
+                    value={subject.year}
+                    onChange={(e) => setSubject({ ...subject, year: e.target.value })}
+                  >
+                    <option value="">Select Year</option>
+                    <option value="SY">SY (Second Year)</option>
+                    <option value="TE">TE (Third Year)</option>
+                    <option value="BE">BE (Fourth Year)</option>
+                  </select>
+                </div>
+
+                <div className="form-row">
+                  <label>Coordinator (Faculty Email or ID)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. john@email.com or user_id"
+                    value={subject.coordinator}
+                    onChange={(e) => setSubject({ ...subject, coordinator: e.target.value })}
+                  />
+                </div>
+
                 </div>
 
                 <div className="status-alert status-alert-warn" style={{ marginTop: "16px", display: "flex", gap: "10px", alignItems: "center" }}>

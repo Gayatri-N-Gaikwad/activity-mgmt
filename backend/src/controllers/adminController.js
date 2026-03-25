@@ -75,12 +75,12 @@ export const createClass = async (req, res) => {
 // Controller to create a new subject
 export const createSubject = async (req, res) => {
   try {
-    const { name, code } = req.body;
+    const { name, code, year, coordinator } = req.body;
 
-    if (!name || !code) {
+    if (!name || !code || !year || !coordinator) {
       return res.status(400).json({
         success: false,
-        message: "Subject name and code are required"
+        message: "Subject code, name, year, and coordinator are required"
       });
     }
 
@@ -93,7 +93,27 @@ export const createSubject = async (req, res) => {
       });
     }
 
-    const newSubject = await Subject.create({ name, code });
+    // Verify coordinator exists
+    const coordinatorLookup = [{ email: coordinator }];
+    if (/^[0-9a-fA-F]{24}$/.test(coordinator)) {
+      coordinatorLookup.push({ _id: coordinator });
+    }
+
+    const coordinatorUser = await User.findOne({ $or: coordinatorLookup });
+
+    if (!coordinatorUser) {
+      return res.status(400).json({
+        success: false,
+        message: "Coordinator not found"
+      });
+    }
+
+    const newSubject = await Subject.create({ 
+      name, 
+      code, 
+      year,
+      coordinator: coordinatorUser._id 
+    });
 
     return res.status(201).json({
       success: true,
@@ -330,7 +350,7 @@ export const getAllClasses = async (req, res) => {
 
 export const getAllSubjects = async (req, res) => {
   try {
-    const subjects = await Subject.find().select("_id name code");
+    const subjects = await Subject.find().select("_id name code year");
     res.json({ success: true, data: subjects });
   } catch (err) {
     res.status(500).json({ success: false, message: "Failed to fetch subjects" });
@@ -419,6 +439,195 @@ export const setAcademicYear = async (req, res) => {
   }
 };
 
+// Upload subjects from Excel
+export const uploadSubjectsFromExcel = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "Excel file is required" });
+    }
+
+    /* ---------- Read Excel ---------- */
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+
+    const rows = XLSX.utils.sheet_to_json(sheet);
+
+    if (!rows.length) {
+      return res.status(400).json({ error: "Excel file is empty" });
+    }
+
+
+    /* ---------- Expected Excel Columns (ALL REQUIRED) ---------- */
+    // code | name | year | coordinator
+    const parsedSubjects = [];
+    const validationErrors = [];
+
+    rows.forEach((row, index) => {
+      const rowNum = index + 2; // Excel row number (starting from 2 because row 1 is header)
+      
+      const code = row.code ? String(row.code).trim() : null;
+      const name = row.name ? String(row.name).trim() : null;
+      const year = row.year ? String(row.year).trim() : null;
+      const coordinator = row.coordinator ? String(row.coordinator).trim() : null;
+
+      // Log the row data for debugging
+
+      // Validate all fields are present
+      if (!code) {
+        validationErrors.push({
+          row: rowNum,
+          error: "Missing or empty 'code' field",
+          data: { code, name, year, coordinator }
+        });
+        return;
+      }
+      if (!name) {
+        validationErrors.push({
+          row: rowNum,
+          error: "Missing or empty 'name' field",
+          data: { code, name, year, coordinator }
+        });
+        return;
+      }
+      if (!year) {
+        validationErrors.push({
+          row: rowNum,
+          error: "Missing or empty 'year' field",
+          data: { code, name, year, coordinator }
+        });
+        return;
+      }
+      if (!coordinator) {
+        validationErrors.push({
+          row: rowNum,
+          error: "Missing or empty 'coordinator' field",
+          data: { code, name, year, coordinator }
+        });
+        return;
+      }
+
+      parsedSubjects.push({
+        rowNum,
+        code,
+        name,
+        year,
+        coordinator
+      });
+    });
+
+    // Return early if validation errors found
+    if (validationErrors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation errors found - check the errors array below",
+        validationErrors: validationErrors,
+        successCount: 0,
+        duplicateCount: 0,
+        errorCount: validationErrors.length,
+        createdSubjects: [],
+        duplicates: [],
+        errors: validationErrors
+      });
+    }
+
+    /* ---------- Validate and Insert Subjects ---------- */
+    const createdSubjects = [];
+    const duplicates = [];
+    const errors = [];
+
+    for (let i = 0; i < parsedSubjects.length; i++) {
+      const subject = parsedSubjects[i];
+      
+      try {
+
+        // Check if subject code already exists
+        const existingSubject = await Subject.findOne({ code: subject.code });
+        
+        if (existingSubject) {
+          duplicates.push({
+            row: subject.rowNum,
+            code: subject.code,
+            name: subject.name,
+            message: "Subject code already exists in database"
+          });
+          continue;
+        }
+
+        // Verify coordinator exists (User ID or email)
+        
+        const coordinatorLookup = [{ email: subject.coordinator }];
+        if (/^[0-9a-fA-F]{24}$/.test(subject.coordinator)) {
+          coordinatorLookup.push({ _id: subject.coordinator });
+        }
+
+        const user = await User.findOne({ $or: coordinatorLookup });
+
+        if (!user) {
+          errors.push({
+            row: subject.rowNum,
+            code: subject.code,
+            name: subject.name,
+            year: subject.year,
+            coordinatorInput: subject.coordinator,
+            message: `Coordinator '${subject.coordinator}' not found in database. Make sure the email is registered.`
+          });
+          continue;
+        }
+
+
+        // Create the subject
+        
+        const newSubject = await Subject.create({
+          code: subject.code,
+          name: subject.name,
+          year: subject.year,
+          coordinator: user._id
+        });
+
+        createdSubjects.push({
+          row: subject.rowNum,
+          code: newSubject.code,
+          name: newSubject.name,
+          year: newSubject.year,
+          coordinatorEmail: user.email,
+          coordinatorId: newSubject.coordinator,
+          id: newSubject._id
+        });
+
+
+      } catch (err) {
+        errors.push({
+          row: subject.rowNum,
+          code: subject.code,
+          name: subject.name,
+          year: subject.year,
+          message: err.message
+        });
+      }
+    }
+
+    const response = {
+      success: createdSubjects.length > 0,
+      message: "Subjects upload completed",
+      successCount: createdSubjects.length,
+      duplicateCount: duplicates.length,
+      errorCount: errors.length,
+      createdSubjects,
+      duplicates,
+      errors
+    };
+
+
+    return res.status(201).json(response);
+
+  } catch (err) {
+    return res.status(500).json({ 
+      success: false,
+      error: err.message
+    });
+  }
+};
 
 
 export const getAdminActivities = async (req, res) => {

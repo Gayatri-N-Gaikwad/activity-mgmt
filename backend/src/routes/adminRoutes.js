@@ -6,6 +6,7 @@ import {
   createSubject,
   assignSubjectAndClassToFaculty,
   uploadStudentsFromExcel,
+  uploadSubjectsFromExcel,
   getAllClasses,
   getAllSubjects,
   getAllFaculties,
@@ -74,3 +75,10 @@ router.get("/activities", getAdminActivities);
 
 export default router;
 
+
+/* ---------- Upload subjects via Excel ---------- */
+router.post(
+  "/subjects/upload",
+  upload.single("file"),
+  uploadSubjectsFromExcel
+);
