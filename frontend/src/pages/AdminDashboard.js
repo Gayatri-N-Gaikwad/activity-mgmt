@@ -23,7 +23,8 @@ function AdminDashboard() {
 
   const [classData, setClassData] = useState({
     year: "",
-    division: ""
+    division: "",
+    google_group_email: "",
   });
   const [subject, setSubject] = useState({ name: "", code: "", year: "", coordinator: "" });
 
@@ -210,18 +211,31 @@ function AdminDashboard() {
 
   // Add Class
   const handleAddClass = async () => {
-    const { year, division } = classData;
+    const { year, division, google_group_email } = classData;
 
-    if (!year || !division) {
-      showToast("error", "Select year and division");
+    if (!year || !division || !google_group_email) {
+      showToast("error", "Select year, division, and Google Group link");
       return;
     }
 
+    if (google_group_email) {
+      try {
+        const parsedUrl = new URL(google_group_email);
+        if (parsedUrl.protocol !== "https:" || parsedUrl.hostname !== "groups.google.com") {
+          showToast("error", "Enter a valid Google Group link");
+          return;
+        }
+      } catch {
+        showToast("error", "Enter a valid Google Group link");
+        return;
+      }
+    }
+
     try {
-      await addClass({ year, division });
+      await addClass({ year, division, google_group_email: google_group_email.trim() });
       showToast("success", "Class added successfully");
 
-      setClassData({ year: "", division: "" });
+      setClassData({ year: "", division: "", google_group_email: "" });
     } catch (err) {
       const message =
         err?.response?.data?.message || "Error adding class";
@@ -658,6 +672,17 @@ function AdminDashboard() {
                   </select>
                 </div>
 
+                <div className="form-row">
+                  <label>Google Group Link *</label>
+                  <input
+                    type="url"
+                    required
+                    placeholder="https://groups.google.com/g/your-class-group"
+                    value={classData.google_group_email}
+                    onChange={(e) => setClassData({ ...classData, google_group_email: e.target.value })}
+                  />
+                </div>
+
                 <div className="form-actions" style={{ marginTop: "24px" }}>
                   <button className="btn btn-primary" onClick={handleAddClass}>Add Class</button>
                 </div>
@@ -803,29 +828,6 @@ function AdminDashboard() {
                       </span>
                     </div>
                   </div>
-
-                <div className="form-row">
-                  <label>Year</label>
-                  <select
-                    value={subject.year}
-                    onChange={(e) => setSubject({ ...subject, year: e.target.value })}
-                  >
-                    <option value="">Select Year</option>
-                    <option value="SY">SY (Second Year)</option>
-                    <option value="TE">TE (Third Year)</option>
-                    <option value="BE">BE (Fourth Year)</option>
-                  </select>
-                </div>
-
-                <div className="form-row">
-                  <label>Coordinator (Faculty Email or ID)</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. john@email.com or user_id"
-                    value={subject.coordinator}
-                    onChange={(e) => setSubject({ ...subject, coordinator: e.target.value })}
-                  />
-                </div>
 
                 </div>
 

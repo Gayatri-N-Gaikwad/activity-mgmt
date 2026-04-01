@@ -38,14 +38,29 @@ export const getAllTeachingAssignments = async (req, res) => {
 // Controller to create a new class
 export const createClass = async (req, res) => {
   try {
-    const { year, division } = req.body;
+    const { year, division, google_group_email } = req.body;
 
-    if (!year || !division) {
+    if (!year || !division || !google_group_email) {
       return res.status(400).json({
         success: false,
-        message: "Year and division are required"
+        message: "Year, division, and Google Group link are required"
       });
     }
+
+    try {
+        const parsedUrl = new URL(google_group_email);
+        if (parsedUrl.protocol !== "https:" || parsedUrl.hostname !== "groups.google.com") {
+          return res.status(400).json({
+            success: false,
+            message: "Enter a valid Google Group link"
+          });
+        }
+      } catch {
+        return res.status(400).json({
+          success: false,
+          message: "Enter a valid Google Group link"
+        });
+      }
 
     const existingClass = await Class.findOne({ year, division });
     if (existingClass) {
@@ -55,7 +70,11 @@ export const createClass = async (req, res) => {
       });
     }
 
-    const newClass = await Class.create({ year, division });
+    const newClass = await Class.create({
+      year,
+      division,
+      google_group_email: google_group_email.trim(),
+    });
 
     return res.status(201).json({
       success: true,

@@ -7,8 +7,8 @@ export const getAllTeachingAssignments = async () => {
 };
 
 // Add new class
-export const addClass = async ({ year, division }) => {
-  const res = await API.post("/admin/addclass", { year, division });
+export const addClass = async ({ year, division, google_group_email }) => {
+  const res = await API.post("/admin/addclass", { year, division, google_group_email });
   return res.data;
 };
 
