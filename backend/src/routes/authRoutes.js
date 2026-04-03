@@ -19,7 +19,7 @@ const debugToken = (req, res) => {
 const router = express.Router();
 
 router.get("/health", healthCheck);
-router.post("/register", registerUser);
+// router.post("/register", registerUser); // Signup disabled intentionally
 router.post("/login", loginUser);
 router.post("/change-password-first-time", changePasswordFirstTime);
 router.get("/debug-token", debugToken);

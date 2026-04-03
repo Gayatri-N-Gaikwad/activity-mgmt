@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import api from "../services/api";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import showToast from "../utils/toast";
 
 function LoginPage() {
@@ -78,7 +78,8 @@ function LoginPage() {
         </form>
 
         <p className="auth-footer">
-          Don’t have an account? <Link to="/register">Create account</Link>
+          {/* Don’t have an account? <Link to="/register">Create account</Link> */}
+          Don’t have an account? Please contact admin.
         </p>
       </div>
     </div>

@@ -10,7 +10,8 @@ import {
   getAllFaculties,
   uploadStudentsExcel,
   uploadSubjectsExcel,
-  uploadFacultiesExcel
+  uploadFacultiesExcel,
+  addSingleFaculty
 } from "../services/teachingAssignmentApi";
 import showToast from "../utils/toast";
 import AdminDashboardCharts from "./AdminDashboardCharts";
@@ -38,6 +39,7 @@ function AdminDashboard() {
   const [studentFile, setStudentFile] = useState(null);
   const [subjectFile, setSubjectFile] = useState(null);
   const [facultyFile, setFacultyFile] = useState(null);
+  const [singleFaculty, setSingleFaculty] = useState({ name: "", email: "", role: "Faculty" });
   const [studentClassId, setStudentClassId] = useState("");
 
   const [classes, setClasses] = useState([]);
@@ -326,7 +328,7 @@ function AdminDashboard() {
 
     try {
       const response = await uploadSubjectsExcel(formData);
-      const { successCount, duplicateCount, errorCount, errors, validationErrors, createdSubjects } = response.data;
+      const { successCount, duplicateCount, errorCount, errors, validationErrors } = response.data;
 
       if (errorCount > 0 || (validationErrors && validationErrors.length > 0)) {
         // Show detailed error information
@@ -383,6 +385,31 @@ function AdminDashboard() {
       setFacultyFile(null);
     } catch (err) {
       showToast("error", err?.response?.data?.message || "Failed to upload faculties");
+    }
+  };
+
+  const handleSingleFacultyAdd = async () => {
+    const name = String(singleFaculty.name || "").trim();
+    const email = String(singleFaculty.email || "").trim().toLowerCase();
+    const role = String(singleFaculty.role || "").trim();
+
+    if (!name || !email || !role) {
+      showToast("error", "Name, email, and role are required");
+      return;
+    }
+
+    try {
+      const res = await addSingleFaculty({ name, email, role });
+      showToast("success", res?.message || "Faculty/user added successfully");
+      if (res?.defaultPassword) {
+        showToast("info", `Default password: ${res.defaultPassword}`);
+      }
+      setSingleFaculty({ name: "", email: "", role: "Faculty" });
+      if (activeTab === "assign") {
+        getAllFaculties().then(setFaculties).catch(() => {});
+      }
+    } catch (err) {
+      showToast("error", err?.response?.data?.message || "Failed to add faculty/user");
     }
   };
 
@@ -685,7 +712,7 @@ function AdminDashboard() {
             <div className="card create-activity-card" style={{ maxWidth: "700px", margin: "0 auto" }}>
               <div className="form-brand">Bulk Import</div>
               <h2 className="form-title">Upload Faculties from Excel</h2>
-              <p className="form-subtitle">Create user accounts in bulk with default password Welcome@123.</p>
+              <p className="form-subtitle">Save faculty names and emails in the faculty directory for registration whitelist and coordinator lookup.</p>
 
               <div className="create-form">
                 <div className="form-row">
@@ -720,7 +747,7 @@ function AdminDashboard() {
                       <p style={{ margin: "4px 0" }}>Column 3: <b>role</b> (Faculty, HOD, admin)</p>
                     </div>
                     <p style={{ marginTop: "8px", fontSize: "12px", color: "#475569" }}>
-                      Default password will be <b>Welcome@123</b>. Users will reset it on first login.
+                      Uploaded emails will be allowed to register only if they exist in this faculty directory.
                     </p>
                   </div>
                 </div>
@@ -729,6 +756,51 @@ function AdminDashboard() {
                   <button className="btn btn-primary" onClick={handleFacultyUpload} disabled={!facultyFile}>
                     <i className="fa fa-upload" style={{ marginRight: "8px" }}></i> Upload Faculties
                   </button>
+                </div>
+
+                <div style={{ marginTop: "28px", borderTop: "1px solid #e2e8f0", paddingTop: "22px" }}>
+                  <h3 style={{ margin: "0 0 10px 0", fontSize: "18px" }}>Add Single Faculty/User</h3>
+                  <p className="muted" style={{ marginBottom: "14px" }}>
+                    Use this when you need to add one new faculty/user without uploading Excel.
+                  </p>
+
+                  <div className="form-row">
+                    <label>Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Jane Doe"
+                      value={singleFaculty.name}
+                      onChange={(e) => setSingleFaculty((prev) => ({ ...prev, name: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="form-row">
+                    <label>Email</label>
+                    <input
+                      type="email"
+                      placeholder="e.g. jane@college.edu"
+                      value={singleFaculty.email}
+                      onChange={(e) => setSingleFaculty((prev) => ({ ...prev, email: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="form-row">
+                    <label>Role</label>
+                    <select
+                      value={singleFaculty.role}
+                      onChange={(e) => setSingleFaculty((prev) => ({ ...prev, role: e.target.value }))}
+                    >
+                      <option value="Faculty">Faculty</option>
+                      <option value="HOD">HOD</option>
+                      <option value="admin">admin</option>
+                    </select>
+                  </div>
+
+                  <div className="form-actions" style={{ marginTop: "14px" }}>
+                    <button className="btn btn-outline" onClick={handleSingleFacultyAdd}>
+                      <i className="fa fa-user-plus" style={{ marginRight: "8px" }}></i> Add Faculty/User
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

@@ -1,18 +1,39 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import FacultyDirectory from "../models/FacultyDirectory.js";
 
 // REGISTER USER
 export const registerUser = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const requestedRole = String(role || "Faculty").trim();
 
     console.log("Login payload:", req.body);
     console.log("JWT_SECRET:", process.env.JWT_SECRET);
 
+    if (!name || !normalizedEmail || !password) {
+      return res.status(400).json({ message: "Name, email, and password are required" });
+    }
+
+    const directoryEntry = await FacultyDirectory.findOne({ email: normalizedEmail }).lean();
+    if (!directoryEntry) {
+      return res.status(403).json({
+        message: "This email is not registered in the faculty directory. Contact admin to add it first.",
+      });
+    }
+
+    const allowedRoles = new Set((directoryEntry.roles || []).map((item) => String(item).trim()));
+    if (allowedRoles.size > 0 && !allowedRoles.has(requestedRole)) {
+      return res.status(400).json({
+        message: `This email can register only as: ${Array.from(allowedRoles).join(", ")}`,
+      });
+    }
+
 
     // Check existing user
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) return res.status(400).json({ message: "User already exists" });
 
     // Hash password
@@ -20,7 +41,13 @@ export const registerUser = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     // Save user
-    const user = new User({ name, email, password: hashedPassword, role, isFirstLogin: false });
+    const user = new User({
+      name: String(name).trim(),
+      email: normalizedEmail,
+      password: hashedPassword,
+      role: requestedRole,
+      isFirstLogin: false,
+    });
     await user.save();
 
     res.status(201).json({ message: "User registered successfully ✅" });

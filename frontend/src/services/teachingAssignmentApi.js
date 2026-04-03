@@ -90,3 +90,8 @@ export const uploadFacultiesExcel = (formData) => {
   });
 };
 
+export const addSingleFaculty = async ({ name, email, role }) => {
+  const res = await API.post("/admin/faculties/add", { name, email, role });
+  return res.data;
+};
+

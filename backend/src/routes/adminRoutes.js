@@ -8,9 +8,11 @@ import {
   uploadStudentsFromExcel,
   uploadSubjectsFromExcel,
   uploadFacultyFromExcel,
+  addSingleFacultyUser,
   getAllClasses,
   getAllSubjects,
   getAllFaculties,
+  getFacultyDirectory,
   setAcademicYear,
   getActiveAcademicYear,
   getAdminActivities
@@ -72,6 +74,8 @@ router.post(
   uploadFacultyFromExcel
 );
 
+router.post("/faculties/add", addSingleFacultyUser);
+
 /* ---------- Academic Year Routes ---------- */
 router.post("/academic-year", setAcademicYear);
 
@@ -80,6 +84,7 @@ router.get("/academic-year/active", getActiveAcademicYear);
 router.get("/classes", getAllClasses);
 router.get("/subjects", getAllSubjects);
 router.get("/faculties",  getAllFaculties);
+router.get("/faculty-directory", getFacultyDirectory);
 
 /* IMPORTANT: this must come BEFORE /activities/:id */
 router.get("/activities", getAdminActivities);

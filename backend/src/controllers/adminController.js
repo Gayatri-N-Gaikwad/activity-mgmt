@@ -6,10 +6,25 @@ import StudentActivityMarks from "../models/StudentActivityMarks.js";
 import Class from "../models/Class.js";
 import Subject from "../models/Subject.js";
 import User from "../models/User.js";
+import FacultyDirectory from "../models/FacultyDirectory.js";
 import AcademicYear from "../models/AcademicYear.js";
 import bcrypt from "bcryptjs";
 
 import XLSX from "xlsx";
+
+const normalizeRole = (value) => {
+  const role = String(value || "").trim().toLowerCase();
+  const roleMap = {
+    faculty: "Faculty",
+    hod: "HOD",
+    admin: "admin",
+  };
+  return roleMap[role] || null;
+};
+
+const toUniqueRoles = (existingRoles = [], nextRoles = []) => {
+  return Array.from(new Set([...existingRoles, ...nextRoles]));
+};
 
 
 // Controller to get all teaching assignments
@@ -380,11 +395,25 @@ export const getAllSubjects = async (req, res) => {
 
 export const getAllFaculties = async (req, res) => {
   try {
-    const faculties = await User.find({ role: "Faculty" })
+    const faculties = await User.find({ role: { $in: ["Faculty", "HOD"] } })
+      .sort({ name: 1, email: 1 })
       .select("_id name email");
     res.json({ success: true, data: faculties });
   } catch (err) {
     res.status(500).json({ success: false, message: "Failed to fetch faculties" });
+  }
+};
+
+export const getFacultyDirectory = async (req, res) => {
+  try {
+    const directory = await FacultyDirectory.find()
+      .select("_id name email roles isActive")
+      .sort({ name: 1, email: 1 })
+      .lean();
+
+    res.json({ success: true, data: directory });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Failed to fetch faculty directory" });
   }
 };
 
@@ -737,17 +766,14 @@ export const uploadFacultyFromExcel = async (req, res) => {
     const duplicateEmails = [];
     const errors = [];
 
-
-    const salt = await bcrypt.genSalt(10);
-    const hashedDefaultPassword = await bcrypt.hash("Welcome@123", salt);
+    const directoryByEmail = new Map();
 
     for (const row of rows) {
       try {
         const name = row.name ? String(row.name).trim() : null;
         const email = row.email ? String(row.email).trim().toLowerCase() : null;
         const rawRole = row.role ? String(row.role).trim() : null;
-        const roleMap = { faculty: "Faculty", hod: "HOD", admin: "admin" };
-        const role = rawRole ? roleMap[rawRole.toLowerCase()] : null;
+        const role = normalizeRole(rawRole);
 
 
         // Validate required fields
@@ -774,35 +800,22 @@ export const uploadFacultyFromExcel = async (req, res) => {
         }
 
 
-        // Check for duplicate email in Excel or database
-        const existingUser = await User.findOne({ email });
-        if (existingUser) {
+        const existingDirectoryEntry = directoryByEmail.get(email);
+        if (existingDirectoryEntry) {
           duplicateEmails.push({
             name,
             email,
             role,
-            message: "Email already exists in database"
+            message: "Duplicate email found in Excel file; roles were merged"
           });
+          existingDirectoryEntry.roles = toUniqueRoles(existingDirectoryEntry.roles, [role]);
           continue;
         }
 
-
-        // Create new faculty user
-        const newFaculty = new User({
+        directoryByEmail.set(email, {
           name,
           email,
-          password: hashedDefaultPassword,
-          role,
-          isFirstLogin: role !== "admin"
-        });
-
-
-        await newFaculty.save();
-        createdFaculties.push({
-          id: newFaculty._id,
-          name: newFaculty.name,
-          email: newFaculty.email,
-          role: newFaculty.role
+          roles: [role],
         });
 
 
@@ -818,18 +831,48 @@ export const uploadFacultyFromExcel = async (req, res) => {
 
 
     // Determine response status and message
+    const directoryEntries = Array.from(directoryByEmail.values());
+
+    for (const entry of directoryEntries) {
+      const existingDirectory = await FacultyDirectory.findOne({ email: entry.email });
+      if (existingDirectory) {
+        duplicateEmails.push({
+          name: entry.name,
+          email: entry.email,
+          role: entry.roles.join(", "),
+          message: "Email already exists in faculty directory; skipped",
+        });
+        continue;
+      } else {
+        const newDirectoryEntry = await FacultyDirectory.create({
+          name: entry.name,
+          email: entry.email,
+          roles: entry.roles,
+          isActive: true,
+        });
+
+        createdFaculties.push({
+          id: newDirectoryEntry._id,
+          name: newDirectoryEntry.name,
+          email: newDirectoryEntry.email,
+          roles: newDirectoryEntry.roles,
+        });
+      }
+    }
+
     const hasErrors = duplicateEmails.length > 0 || errors.length > 0;
     const statusCode = !hasErrors ? 201 : 207;
 
     let message = "Faculty upload completed";
     if (!createdFaculties.length && (duplicateEmails.length || errors.length)) {
-      message = "No users created. Check duplicate emails/role values and Excel column names (name, email, role).";
+      message = "No faculty records created. Check duplicate emails/role values and Excel column names (name, email, role).";
     }
 
     const response = {
       success: createdFaculties.length > 0,
       message,
-      successCount: createdFaculties.length,
+      inserted: createdFaculties.length,
+      failed: duplicateEmails.length + errors.length,
       duplicateCount: duplicateEmails.length,
       errorCount: errors.length,
       createdFaculties,
@@ -846,6 +889,82 @@ export const uploadFacultyFromExcel = async (req, res) => {
       success: false,
       message: "Server error",
       error: err.message
+    });
+  }
+};
+
+export const addSingleFacultyUser = async (req, res) => {
+  try {
+    const name = String(req.body?.name || "").trim();
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    const role = normalizeRole(req.body?.role);
+
+    if (!name || !email || !req.body?.role) {
+      return res.status(400).json({
+        success: false,
+        message: "Name, email, and role are required",
+      });
+    }
+
+    if (!role) {
+      return res.status(400).json({
+        success: false,
+        message: "Role must be Faculty, HOD, or admin",
+      });
+    }
+
+    const existingDirectory = await FacultyDirectory.findOne({ email });
+    if (existingDirectory) {
+      existingDirectory.name = name;
+      existingDirectory.roles = toUniqueRoles(existingDirectory.roles, [role]);
+      existingDirectory.isActive = true;
+      await existingDirectory.save();
+    } else {
+      await FacultyDirectory.create({
+        name,
+        email,
+        roles: [role],
+        isActive: true,
+      });
+    }
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(200).json({
+        success: true,
+        message: "Faculty directory updated. User account already exists.",
+        userCreated: false,
+      });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedDefaultPassword = await bcrypt.hash("Welcome@123", salt);
+
+    const newUser = await User.create({
+      name,
+      email,
+      password: hashedDefaultPassword,
+      role,
+      isFirstLogin: role !== "admin",
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Faculty/user added successfully",
+      userCreated: true,
+      defaultPassword: "Welcome@123",
+      data: {
+        id: newUser._id,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: err.message,
     });
   }
 };
