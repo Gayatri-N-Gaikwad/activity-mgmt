@@ -81,3 +81,12 @@ export const uploadSubjectsExcel = (formData) => {
   });
 };
 
+// Upload faculties from Excel
+export const uploadFacultiesExcel = (formData) => {
+  return API.post("/admin/faculties/upload", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data"
+    }
+  });
+};
+

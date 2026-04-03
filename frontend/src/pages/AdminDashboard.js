@@ -9,7 +9,8 @@ import {
   getAllSubjects,
   getAllFaculties,
   uploadStudentsExcel,
-  uploadSubjectsExcel
+  uploadSubjectsExcel,
+  uploadFacultiesExcel
 } from "../services/teachingAssignmentApi";
 import showToast from "../utils/toast";
 import AdminDashboardCharts from "./AdminDashboardCharts";
@@ -36,6 +37,7 @@ function AdminDashboard() {
 
   const [studentFile, setStudentFile] = useState(null);
   const [subjectFile, setSubjectFile] = useState(null);
+  const [facultyFile, setFacultyFile] = useState(null);
   const [studentClassId, setStudentClassId] = useState("");
 
   const [classes, setClasses] = useState([]);
@@ -355,6 +357,36 @@ function AdminDashboard() {
     }
   };
 
+  // Upload faculty user data
+  const handleFacultyUpload = async () => {
+    if (!facultyFile) {
+      showToast("error", "Please select an Excel file");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", facultyFile);
+
+    try {
+      const response = await uploadFacultiesExcel(formData);
+      const { inserted, failed, message } = response.data || {};
+
+      const successCount = Number(inserted || 0);
+      const failedCount = Number(failed || 0);
+      let toastMessage = message || `Uploaded ${successCount} faculty record(s)`;
+
+      if (failedCount > 0) {
+        toastMessage += ` (${failedCount} failed)`;
+      }
+
+      showToast(failedCount > 0 ? "warning" : "success", toastMessage);
+      setFacultyFile(null);
+    } catch (err) {
+      showToast("error", err?.response?.data?.message || "Failed to upload faculties");
+    }
+  };
+
+
   const handleSetAcademicYear = async () => {
     if (!academicYear || !semesterStartDate || !semesterEndDate) {
       showToast("error", "Enter academic year, start date and end date");
@@ -420,6 +452,14 @@ function AdminDashboard() {
           >
             <i className="fa fa-file-excel"></i>
             <span>Upload Subjects</span>
+          </button>
+
+          <button
+            className={`admin-nav-btn ${activeTab === "uploadFaculties" ? "active" : ""}`}
+            onClick={() => setActiveTab("uploadFaculties")}
+          >
+            <i className="fa fa-user-plus"></i>
+            <span>Upload Faculties</span>
           </button>
 
           <button
@@ -633,6 +673,61 @@ function AdminDashboard() {
                 <div className="form-actions" style={{ marginTop: "24px" }}>
                   <button className="btn btn-primary" onClick={handleSubjectUpload} disabled={!subjectFile}>
                     <i className="fa fa-upload" style={{ marginRight: "8px" }}></i> Upload Subjects
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+
+
+          {activeTab === "uploadFaculties" && (
+            <div className="card create-activity-card" style={{ maxWidth: "700px", margin: "0 auto" }}>
+              <div className="form-brand">Bulk Import</div>
+              <h2 className="form-title">Upload Faculties from Excel</h2>
+              <p className="form-subtitle">Create user accounts in bulk with default password Welcome@123.</p>
+
+              <div className="create-form">
+                <div className="form-row">
+                  <label>Select Excel File</label>
+                  <div style={{ position: "relative", display: "inline-block", width: "100%" }}>
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={(e) => setFacultyFile(e.target.files?.[0] || null)}
+                      style={{
+                        padding: "12px",
+                        border: "2px dashed #e2e8f0",
+                        borderRadius: "8px",
+                        width: "100%",
+                        cursor: "pointer",
+                        boxSizing: "border-box"
+                      }}
+                    />
+                    <span style={{ color: "#666", fontSize: "12px", marginTop: "8px", display: "block" }}>
+                      {facultyFile ? `Selected: ${facultyFile.name}` : "Choose an .xlsx or .xls file"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="status-alert status-alert-info" style={{ marginTop: "16px", display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                  <i className="fa fa-info-circle"></i>
+                  <div>
+                    <strong>Expected Excel Format (Required columns):</strong>
+                    <div style={{ marginTop: "8px", fontSize: "13px", lineHeight: "1.6" }}>
+                      <p style={{ margin: "4px 0" }}>Column 1: <b>name</b> (e.g., Jane Doe)</p>
+                      <p style={{ margin: "4px 0" }}>Column 2: <b>email</b> (e.g., jane@college.edu)</p>
+                      <p style={{ margin: "4px 0" }}>Column 3: <b>role</b> (Faculty, HOD, admin)</p>
+                    </div>
+                    <p style={{ marginTop: "8px", fontSize: "12px", color: "#475569" }}>
+                      Default password will be <b>Welcome@123</b>. Users will reset it on first login.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="form-actions" style={{ marginTop: "24px" }}>
+                  <button className="btn btn-primary" onClick={handleFacultyUpload} disabled={!facultyFile}>
+                    <i className="fa fa-upload" style={{ marginRight: "8px" }}></i> Upload Faculties
                   </button>
                 </div>
               </div>

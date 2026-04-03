@@ -7,6 +7,7 @@ import Class from "../models/Class.js";
 import Subject from "../models/Subject.js";
 import User from "../models/User.js";
 import AcademicYear from "../models/AcademicYear.js";
+import bcrypt from "bcryptjs";
 
 import XLSX from "xlsx";
 
@@ -708,3 +709,145 @@ export const getAdminActivities = async (req, res) => {
     });
   }
 };
+
+export const uploadFacultyFromExcel = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No file uploaded"
+      });
+    }
+
+
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet);
+
+
+    if (!rows || rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Excel file is empty"
+      });
+    }
+
+
+    const createdFaculties = [];
+    const duplicateEmails = [];
+    const errors = [];
+
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedDefaultPassword = await bcrypt.hash("Welcome@123", salt);
+
+    for (const row of rows) {
+      try {
+        const name = row.name ? String(row.name).trim() : null;
+        const email = row.email ? String(row.email).trim().toLowerCase() : null;
+        const rawRole = row.role ? String(row.role).trim() : null;
+        const roleMap = { faculty: "Faculty", hod: "HOD", admin: "admin" };
+        const role = rawRole ? roleMap[rawRole.toLowerCase()] : null;
+
+
+        // Validate required fields
+        if (!name || !email || !rawRole) {
+          errors.push({
+            name,
+            email,
+            role: rawRole,
+            message: "Name, email, and role are required"
+          });
+          continue;
+        }
+
+
+        // Validate role
+        if (!["Faculty", "HOD", "admin"].includes(role)) {
+          errors.push({
+            name,
+            email,
+            role: rawRole,
+            message: "Role must be Faculty, HOD, or admin"
+          });
+          continue;
+        }
+
+
+        // Check for duplicate email in Excel or database
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+          duplicateEmails.push({
+            name,
+            email,
+            role,
+            message: "Email already exists in database"
+          });
+          continue;
+        }
+
+
+        // Create new faculty user
+        const newFaculty = new User({
+          name,
+          email,
+          password: hashedDefaultPassword,
+          role,
+          isFirstLogin: role !== "admin"
+        });
+
+
+        await newFaculty.save();
+        createdFaculties.push({
+          id: newFaculty._id,
+          name: newFaculty.name,
+          email: newFaculty.email,
+          role: newFaculty.role
+        });
+
+
+      } catch (err) {
+        errors.push({
+          name: row.name,
+          email: row.email,
+          role: row.role,
+          message: err.message
+        });
+      }
+    }
+
+
+    // Determine response status and message
+    const hasErrors = duplicateEmails.length > 0 || errors.length > 0;
+    const statusCode = !hasErrors ? 201 : 207;
+
+    let message = "Faculty upload completed";
+    if (!createdFaculties.length && (duplicateEmails.length || errors.length)) {
+      message = "No users created. Check duplicate emails/role values and Excel column names (name, email, role).";
+    }
+
+    const response = {
+      success: createdFaculties.length > 0,
+      message,
+      successCount: createdFaculties.length,
+      duplicateCount: duplicateEmails.length,
+      errorCount: errors.length,
+      createdFaculties,
+      duplicateEmails,
+      errors
+    };
+
+
+    return res.status(statusCode).json(response);
+
+
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: err.message
+    });
+  }
+};
+
+

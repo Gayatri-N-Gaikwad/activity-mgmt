@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import FirstLoginResetPasswordPage from "./pages/FirstLoginResetPasswordPage";
 import DashboardPage from "./pages/DashboardPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Header from "./components/Header";
@@ -37,6 +38,15 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+
+      <Route
+        path="/reset-password-first-login"
+        element={
+          <ProtectedRoute>
+            <FirstLoginResetPasswordPage />
+          </ProtectedRoute>
+        }
+      />
 
           <Route
             path="/dashboard"

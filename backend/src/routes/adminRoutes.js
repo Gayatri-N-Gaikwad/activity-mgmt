@@ -7,6 +7,7 @@ import {
   assignSubjectAndClassToFaculty,
   uploadStudentsFromExcel,
   uploadSubjectsFromExcel,
+  uploadFacultyFromExcel,
   getAllClasses,
   getAllSubjects,
   getAllFaculties,
@@ -23,13 +24,18 @@ const storage = multer.memoryStorage(); // Excel processed in memory
 const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
-    if (
-      file.mimetype ===
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    ) {
+    const allowedMimeTypes = [
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+      "application/vnd.ms-excel" // .xls
+    ];
+
+    const hasValidMime = allowedMimeTypes.includes(file.mimetype);
+    const hasValidExtension = /\.(xlsx|xls)$/i.test(file.originalname || "");
+
+    if (hasValidMime || hasValidExtension) {
       cb(null, true);
     } else {
-      cb(new Error("Only Excel files are allowed"));
+      cb(new Error("Only Excel files (.xlsx, .xls) are allowed"));
     }
   }
 });
@@ -57,6 +63,13 @@ router.post(
   "/students/upload",
   upload.single("file"),
   uploadStudentsFromExcel
+);
+
+/* ---------- NEW: Upload faculties via Excel ---------- */
+router.post(
+  "/faculties/upload",
+  upload.single("file"),
+  uploadFacultyFromExcel
 );
 
 /* ---------- Academic Year Routes ---------- */

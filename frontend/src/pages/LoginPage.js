@@ -27,8 +27,12 @@ function LoginPage() {
 
       showToast("success", "Login successful! Redirecting...");
       
-      // ✅ Redirect to home page
-      setTimeout(() => navigate("/"), 1000);
+      // Redirect first-time users to password reset page
+      if (user?.isFirstLogin && user?.role !== "admin") {
+        setTimeout(() => navigate("/reset-password-first-login"), 1000);
+      } else {
+        setTimeout(() => navigate("/"), 1000);
+      }
     } catch (err) {
       showToast("error", "Invalid email or password");
     }
