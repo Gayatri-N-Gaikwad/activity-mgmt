@@ -14,7 +14,14 @@ function HODDashboard() {
   // Check if user is HOD
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
-    if (!user || user.role !== "HOD") {
+    const effectiveRoles = user
+      ? Array.isArray(user.roles) && user.roles.length > 0
+        ? user.roles
+        : user.role
+          ? [user.role]
+          : []
+      : [];
+    if (!user || !effectiveRoles.includes("HOD")) {
       showToast("error", "Access Denied: HOD only");
       navigate("/");
     }

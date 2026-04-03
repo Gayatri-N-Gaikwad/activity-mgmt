@@ -71,6 +71,9 @@ export const loginUser = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
 
+    const directoryEntry = await FacultyDirectory.findOne({ email: user.email }).lean();
+    const roles = Array.isArray(directoryEntry?.roles) ? directoryEntry.roles : [];
+
     // Generate JWT
     const token = jwt.sign(
       { id: user._id, role: user.role },
@@ -81,7 +84,7 @@ export const loginUser = async (req, res) => {
     res.json({
       message: "Login successful ✅",
       token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role, isFirstLogin: user.isFirstLogin },
+      user: { id: user._id, name: user.name, email: user.email, role: user.role, roles, isFirstLogin: user.isFirstLogin },
     });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
