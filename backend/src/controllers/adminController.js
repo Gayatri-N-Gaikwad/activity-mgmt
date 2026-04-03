@@ -128,18 +128,13 @@ export const createSubject = async (req, res) => {
       });
     }
 
-    // Verify coordinator exists
-    const coordinatorLookup = [{ email: coordinator }];
-    if (/^[0-9a-fA-F]{24}$/.test(coordinator)) {
-      coordinatorLookup.push({ _id: coordinator });
-    }
+    const coordinatorEmail = String(coordinator).trim().toLowerCase();
+    const facultyDirectoryRecord = await FacultyDirectory.findOne({ email: coordinatorEmail });
 
-    const coordinatorUser = await User.findOne({ $or: coordinatorLookup });
-
-    if (!coordinatorUser) {
+    if (!facultyDirectoryRecord) {
       return res.status(400).json({
         success: false,
-        message: "Coordinator not found"
+        message: "Coordinator email not found in Faculty Directory"
       });
     }
 
@@ -147,7 +142,7 @@ export const createSubject = async (req, res) => {
       name, 
       code, 
       year,
-      coordinator: coordinatorUser._id 
+      coordinator: coordinatorEmail
     });
 
     return res.status(201).json({
@@ -603,35 +598,28 @@ export const uploadSubjectsFromExcel = async (req, res) => {
           continue;
         }
 
-        // Verify coordinator exists (User ID or email)
-        
-        const coordinatorLookup = [{ email: subject.coordinator }];
-        if (/^[0-9a-fA-F]{24}$/.test(subject.coordinator)) {
-          coordinatorLookup.push({ _id: subject.coordinator });
-        }
+        // Validate coordinator email against Faculty Directory
+        const coordinatorEmail = String(subject.coordinator).trim().toLowerCase();
+        const facultyDirectoryRecord = await FacultyDirectory.findOne({ email: coordinatorEmail });
 
-        const user = await User.findOne({ $or: coordinatorLookup });
-
-        if (!user) {
+        if (!facultyDirectoryRecord) {
           errors.push({
             row: subject.rowNum,
             code: subject.code,
             name: subject.name,
             year: subject.year,
             coordinatorInput: subject.coordinator,
-            message: `Coordinator '${subject.coordinator}' not found in database. Make sure the email is registered.`
+            message: `Coordinator '${subject.coordinator}' not found in Faculty Directory. Make sure the email is registered.`
           });
           continue;
         }
 
-
-        // Create the subject
-        
+        // Create the subject using validated coordinator email
         const newSubject = await Subject.create({
           code: subject.code,
           name: subject.name,
           year: subject.year,
-          coordinator: user._id
+          coordinator: coordinatorEmail
         });
 
         createdSubjects.push({
@@ -639,8 +627,8 @@ export const uploadSubjectsFromExcel = async (req, res) => {
           code: newSubject.code,
           name: newSubject.name,
           year: newSubject.year,
-          coordinatorEmail: user.email,
-          coordinatorId: newSubject.coordinator,
+          coordinatorEmail: newSubject.coordinator,
+          coordinatorId: null,
           id: newSubject._id
         });
 

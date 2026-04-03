@@ -3,6 +3,7 @@ import StudentSubjectMarks from "../models/StudentSubjectMarks.js";
 import TeachingAssignment from "../models/TeachingAssignment.js";
 import Subject from "../models/Subject.js";
 import Student from "../models/Student.js";
+import User from "../models/User.js";
 import mongoose from "mongoose";
 
 
@@ -452,13 +453,15 @@ export const getCoordinatorDashboardStats = async (req, res) => {
 
     // Logged-in user ID
     const userId = new mongoose.Types.ObjectId(req.user.id);
+    const currentUser = await User.findById(userId).select("email").lean();
+    const coordinatorEmail = String(currentUser?.email || "").trim().toLowerCase();
 
     // ------------------------------------------------------------------
-    // 1️⃣ Find subjects where this user is the coordinator
+    // 1?? Find subjects where this user is the coordinator
     // ------------------------------------------------------------------
-    const coordinatorSubjects = await Subject.find({
-      coordinator: userId
-    }).select("_id name");
+    const coordinatorSubjects = coordinatorEmail
+      ? await Subject.find({ coordinator: coordinatorEmail }).select("_id name")
+      : [];
 
     // If user is not coordinator of any subject
     if (!coordinatorSubjects.length) {

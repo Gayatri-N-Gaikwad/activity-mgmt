@@ -7,9 +7,10 @@ const subjectSchema = new Schema({
   name: { type: String, required: true },
   year: { type: String, required: true },
   coordinator: {
-    type: Schema.Types.ObjectId,
-    ref: "User",
+    type: String,
     required: true,
+    trim: true,
+    lowercase: true,
   },
 }, { timestamps: true });
 
