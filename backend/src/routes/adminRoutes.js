@@ -6,6 +6,7 @@ import {
   createSubject,
   assignSubjectAndClassToFaculty,
   uploadStudentsFromExcel,
+  uploadTeachingAssignmentsFromExcel,
   uploadSubjectsFromExcel,
   uploadFacultyFromExcel,
   addSingleFacultyUser,
@@ -67,11 +68,23 @@ router.post(
   uploadStudentsFromExcel
 );
 
+router.post(
+  "/assignments/upload",
+  upload.single("file"),
+  uploadTeachingAssignmentsFromExcel
+);
+
 /* ---------- NEW: Upload faculties via Excel ---------- */
 router.post(
   "/faculties/upload",
   upload.single("file"),
   uploadFacultyFromExcel
+);
+
+router.post(
+  "/subjects/upload",
+  upload.single("file"),
+  uploadSubjectsFromExcel
 );
 
 router.post("/faculties/add", addSingleFacultyUser);
@@ -92,11 +105,3 @@ router.get("/activities", getAdminActivities);
 
 
 export default router;
-
-
-/* ---------- Upload subjects via Excel ---------- */
-router.post(
-  "/subjects/upload",
-  upload.single("file"),
-  uploadSubjectsFromExcel
-);

@@ -95,3 +95,11 @@ export const addSingleFaculty = async ({ name, email, role }) => {
   return res.data;
 };
 
+export const uploadFacultyAssignmentsExcel = (formData) => {
+  return API.post("/admin/assignments/upload", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data"
+    }
+  });
+};
+

@@ -11,7 +11,8 @@ import {
   uploadStudentsExcel,
   uploadSubjectsExcel,
   uploadFacultiesExcel,
-  addSingleFaculty
+  addSingleFaculty,
+  uploadFacultyAssignmentsExcel
 } from "../services/teachingAssignmentApi";
 import showToast from "../utils/toast";
 import AdminDashboardCharts from "./AdminDashboardCharts";
@@ -39,6 +40,8 @@ function AdminDashboard() {
   const [studentFile, setStudentFile] = useState(null);
   const [subjectFile, setSubjectFile] = useState(null);
   const [facultyFile, setFacultyFile] = useState(null);
+  const [assignmentFile, setAssignmentFile] = useState(null);
+  const [overwriteAssignments, setOverwriteAssignments] = useState(false);
   const [singleFaculty, setSingleFaculty] = useState({ name: "", email: "", role: "Faculty" });
   const [studentClassId, setStudentClassId] = useState("");
 
@@ -410,6 +413,39 @@ function AdminDashboard() {
       }
     } catch (err) {
       showToast("error", err?.response?.data?.message || "Failed to add faculty/user");
+    }
+  };
+
+  const handleAssignmentUpload = async () => {
+    if (!assignmentFile) {
+      showToast("error", "Please select an Excel file");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", assignmentFile);
+    formData.append("overwrite", String(overwriteAssignments));
+
+    try {
+      const response = await uploadFacultyAssignmentsExcel(formData);
+      const {
+        createdCount = 0,
+        updatedCount = 0,
+        skippedCount = 0,
+        errorCount = 0,
+        errors = []
+      } = response.data || {};
+
+      let message = `Upload complete: ${createdCount} created, ${updatedCount} updated, ${skippedCount} skipped`;
+      if (errorCount > 0) {
+        const firstFew = errors.slice(0, 3).map((e) => `Row ${e.row}: ${e.error}`).join(" | ");
+        message += `. ${errorCount} error(s). ${firstFew}`;
+      }
+
+      showToast(errorCount > 0 ? "warning" : "success", message);
+      setAssignmentFile(null);
+    } catch (err) {
+      showToast("error", err?.response?.data?.message || "Failed to upload faculty assignments");
     }
   };
 
@@ -892,12 +928,85 @@ function AdminDashboard() {
           )}
 
           {activeTab === "assign" && (
-            <div className="card create-activity-card" style={{ maxWidth: "600px", margin: "0 auto" }}>
+            <div className="card create-activity-card" style={{ maxWidth: "760px", margin: "0 auto" }}>
               <div className="form-brand">Allocation</div>
               <h2 className="form-title">Assign Faculty</h2>
               <p className="form-subtitle">Map a faculty member to a specific subject and class division.</p>
 
               <div className="create-form">
+                <div style={{ border: "1px solid #dbe7f7", borderRadius: "10px", padding: "16px", background: "#f8fbff", marginBottom: "20px" }}>
+                  <h3 style={{ margin: "0 0 8px 0", fontSize: "18px" }}>Assign Faculties from Excel</h3>
+                  <p className="muted" style={{ marginBottom: "12px" }}>
+                    Upload Excel and assign faculty in one go. This supports only theory mapping rows.
+                  </p>
+
+                  <div className="form-row" style={{ marginBottom: "10px" }}>
+                    <label>Select Excel File</label>
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={(e) => setAssignmentFile(e.target.files?.[0] || null)}
+                      style={{
+                        padding: "12px",
+                        border: "2px dashed #cdddf4",
+                        borderRadius: "8px",
+                        width: "100%",
+                        cursor: "pointer",
+                        boxSizing: "border-box"
+                      }}
+                    />
+                    <span style={{ color: "#64748b", fontSize: "12px", marginTop: "8px", display: "block" }}>
+                      {assignmentFile ? `Selected: ${assignmentFile.name}` : "Choose an .xlsx or .xls file"}
+                    </span>
+                  </div>
+
+                  <div className="form-row" style={{ marginBottom: "8px" }}>
+                    <label
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "10px",
+                        marginBottom: 0,
+                        fontWeight: 600,
+                        color: "#334155",
+                        cursor: "pointer"
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={overwriteAssignments}
+                        onChange={(e) => setOverwriteAssignments(e.target.checked)}
+                        style={{ width: "16px", height: "16px", cursor: "pointer", margin: 0 }}
+                      />
+                      Replace existing assignments when subject is already allocated
+                    </label>
+                  </div>
+
+                  <div className="status-alert status-alert-info" style={{ marginTop: "10px", display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                    <i className="fa fa-info-circle"></i>
+                    <div style={{ fontSize: "13px", lineHeight: "1.5" }}>
+                      <strong>Expected Excel Columns:</strong> year, division, subjectCode, facultyName.
+                      <div style={{ marginTop: "6px" }}>
+                        Example row: SY | 9 | ADSA | Mrs. J. H. Jadhav
+                      </div>
+                      <div style={{ marginTop: "6px", color: "#475569" }}>
+                        Faculty names are resolved from faculty directory. Names must match exactly as stored in the directory.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="form-actions" style={{ marginTop: "14px" }}>
+                    <button className="btn btn-primary" onClick={handleAssignmentUpload} disabled={!assignmentFile}>
+                      <i className="fa fa-upload" style={{ marginRight: "8px" }}></i> Upload & Assign
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ borderTop: "1px dashed #d7e3f5", marginBottom: "16px", paddingTop: "16px" }}>
+                  <h3 style={{ margin: "0 0 8px 0", fontSize: "18px" }}>Single Assignment</h3>
+                  <p className="muted" style={{ marginBottom: "0" }}>Use this form for one-off faculty allocation.</p>
+                </div>
+
                 <div className="form-row">
                   <label>Select Faculty</label>
                   <select

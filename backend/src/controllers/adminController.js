@@ -26,6 +26,43 @@ const toUniqueRoles = (existingRoles = [], nextRoles = []) => {
   return Array.from(new Set([...existingRoles, ...nextRoles]));
 };
 
+const normalizeYearValue = (value) => {
+  const raw = String(value || "").trim().toUpperCase();
+  if (!raw) return null;
+
+  const map = {
+    SY: "SY",
+    "2": "SY",
+    SECOND: "SY",
+    "SECOND YEAR": "SY",
+    TE: "TE",
+    TY: "TE",
+    "3": "TE",
+    THIRD: "TE",
+    "THIRD YEAR": "TE",
+    BE: "BE",
+    "4": "BE",
+    FOURTH: "BE",
+    "FOURTH YEAR": "BE",
+  };
+
+  return map[raw] || null;
+};
+
+const normalizeDivisionValue = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  const numeric = raw.replace(/\D/g, "");
+  if (!numeric) return raw;
+  return String(Number(numeric));
+};
+
+const normalizeBooleanValue = (value) => {
+  if (typeof value === "boolean") return value;
+  const raw = String(value || "").trim().toLowerCase();
+  return ["true", "1", "yes", "y"].includes(raw);
+};
+
 
 // Controller to get all teaching assignments
 export const getAllTeachingAssignments = async (req, res) => {
@@ -363,6 +400,182 @@ export const uploadStudentsFromExcel = async (req, res) => {
 
     console.error("Student upload error:", err);
     return res.status(500).json({ error: err.message });
+  }
+};
+
+export const uploadTeachingAssignmentsFromExcel = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Excel file is required",
+      });
+    }
+
+    const activeYear = await AcademicYear.findOne({ isActive: true });
+    if (!activeYear) {
+      return res.status(400).json({
+        success: false,
+        message: "No active academic year set. Please set academic year first.",
+      });
+    }
+
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+    if (!rows.length) {
+      return res.status(400).json({
+        success: false,
+        message: "Excel file is empty",
+      });
+    }
+
+    const overwriteAll = normalizeBooleanValue(req.body?.overwrite);
+
+    const result = {
+      createdCount: 0,
+      updatedCount: 0,
+      skippedCount: 0,
+      errorCount: 0,
+      errors: [],
+    };
+
+    for (let index = 0; index < rows.length; index += 1) {
+      const row = rows[index];
+      const rowNum = index + 2;
+
+      try {
+        const rowYear = normalizeYearValue(row.year);
+        const rowDivisionRaw = row.division;
+        const rowDivisionNormalized = normalizeDivisionValue(rowDivisionRaw);
+        const subjectCode = String(row.subjectCode || row.subject_code || "").trim();
+        const subjectName = String(row.subjectName || row.subject_name || "").trim();
+        const facultyEmail = String(row.facultyEmail || row.faculty_email || "").trim().toLowerCase();
+        const facultyName = String(row.facultyName || row.faculty_name || "").trim();
+        const overwrite = overwriteAll || normalizeBooleanValue(row.overwrite);
+
+        if (!rowYear || !rowDivisionNormalized) {
+          throw new Error("year and division are required (year: SY/TE/BE)");
+        }
+
+        if (!subjectCode && !subjectName) {
+          throw new Error("Either subjectCode or subjectName is required");
+        }
+
+        if (!facultyEmail && !facultyName) {
+          throw new Error("Either facultyEmail or facultyName is required");
+        }
+
+        const matchingClasses = await Class.find({ year: rowYear });
+        const classObj = matchingClasses.find((c) => {
+          const dbDivision = normalizeDivisionValue(c.division);
+          return dbDivision === rowDivisionNormalized;
+        });
+
+        if (!classObj) {
+          throw new Error(`Class not found for ${rowYear} division ${rowDivisionRaw}`);
+        }
+
+        let subject = null;
+        if (subjectCode) {
+          subject = await Subject.findOne({
+            code: { $regex: new RegExp(`^${subjectCode}$`, "i") },
+            year: rowYear,
+          });
+        }
+
+        if (!subject && subjectName) {
+          subject = await Subject.findOne({
+            name: { $regex: new RegExp(`^${subjectName}$`, "i") },
+            year: rowYear,
+          });
+        }
+
+        if (!subject) {
+          throw new Error(`Subject not found in ${rowYear} (${subjectCode || subjectName})`);
+        }
+
+        let faculty = null;
+        if (facultyEmail) {
+          faculty = await User.findOne({
+            email: facultyEmail,
+            role: { $in: ["Faculty", "HOD"] },
+          });
+        }
+
+        if (!faculty && facultyName) {
+          const dirRecord = await FacultyDirectory.findOne({
+            name: { $regex: new RegExp(`^${facultyName}$`, "i") },
+          });
+
+          if (!dirRecord) {
+            throw new Error(`Faculty '${facultyName}' not found in faculty directory. Name must match exactly.`);
+          }
+
+          faculty = await User.findOne({
+            email: dirRecord.email,
+            role: { $in: ["Faculty", "HOD"] },
+          });
+
+          if (!faculty) {
+            throw new Error(`Faculty '${facultyName}' (${dirRecord.email}) found in directory but not registered as User. Please register first.`);
+          }
+        }
+
+        if (!faculty) {
+          throw new Error(`Faculty not found (${facultyEmail || facultyName})`);
+        }
+
+        const existingAssignment = await TeachingAssignment.findOne({
+          subjectId: subject._id,
+          year: classObj.year,
+          division: classObj.division,
+        });
+
+        if (!existingAssignment) {
+          await TeachingAssignment.create({
+            facultyId: faculty._id,
+            subjectId: subject._id,
+            year: classObj.year,
+            division: classObj.division,
+          });
+          result.createdCount += 1;
+          continue;
+        }
+
+        if (existingAssignment.facultyId.toString() === faculty._id.toString()) {
+          result.skippedCount += 1;
+          continue;
+        }
+
+        if (!overwrite) {
+          throw new Error("Subject already assigned to another faculty. Set overwrite=true to replace it.");
+        }
+
+        existingAssignment.facultyId = faculty._id;
+        await existingAssignment.save();
+        result.updatedCount += 1;
+      } catch (error) {
+        result.errorCount += 1;
+        result.errors.push({
+          row: rowNum,
+          error: error.message,
+        });
+      }
+    }
+
+    return res.status(200).json({
+      success: result.errorCount === 0,
+      message: "Faculty assignment upload completed",
+      ...result,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: err.message,
+    });
   }
 };
 
@@ -838,6 +1051,27 @@ export const uploadFacultyFromExcel = async (req, res) => {
           roles: entry.roles,
           isActive: true,
         });
+
+        // Also create User record(s) for each role
+        for (const role of entry.roles) {
+          try {
+            const existingUser = await User.findOne({ email: entry.email });
+            if (!existingUser) {
+              const salt = await bcrypt.genSalt(10);
+              const hashedPassword = await bcrypt.hash("Welcome@123", salt);
+
+              await User.create({
+                name: entry.name,
+                email: entry.email,
+                password: hashedPassword,
+                role,
+                isFirstLogin: role !== "admin",
+              });
+            }
+          } catch (userErr) {
+            // If User creation fails, continue anyway (FacultyDirectory was created)
+          }
+        }
 
         createdFaculties.push({
           id: newDirectoryEntry._id,
