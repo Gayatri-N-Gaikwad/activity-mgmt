@@ -348,6 +348,7 @@ export const updateActivity = async (req, res) => {
       statusChangeReason,
       rubric,
       marks,
+      markSubdivisions,
     } = body;
 
     // fetch existing activity
@@ -457,14 +458,14 @@ export const updateActivity = async (req, res) => {
     }
     if (scheduleDate !== undefined) updateFields.scheduleDate = scheduleDate;
 
+    const marksExistForActivity = await StudentActivityMarks.exists({
+      activityId: activity._id,
+    });
+
     // ---------------- Rubric update ----------------
     if (rubric !== undefined) {
       // check if marks exist for this activity
-      const marksExist = await StudentActivityMarks.exists({
-        activityId: activity._id,
-      });
-
-      if (marksExist) {
+      if (marksExistForActivity) {
         console.info(
           `Activity ${activity._id} has existing marks; skipping rubric update`
         );
@@ -501,10 +502,7 @@ export const updateActivity = async (req, res) => {
           .json({ error: "Marks must be greater than zero" });
       }
 
-      const marksExist = await StudentActivityMarks.exists({
-        activityId: activity._id,
-      });
-      if (marksExist) {
+      if (marksExistForActivity) {
         return res
           .status(400)
           .json({
@@ -516,6 +514,105 @@ export const updateActivity = async (req, res) => {
         { activityId: activity._id },
         { name: name || activity.name || "Activity", maxMarks: numericMarks },
         { upsert: true, new: true }
+      );
+    }
+
+    // ---------------- Mark subdivisions update ----------------
+    if (markSubdivisions !== undefined) {
+      if (activity.status === "Conducted" || activity.status === "Marks_Updated") {
+        return res.status(400).json({
+          error: "Cannot edit marks breakdown after activity has been conducted or marked as updated",
+        });
+      }
+
+      if (marksExistForActivity) {
+        return res
+          .status(400)
+          .json({ error: "Cannot change marks breakdown after students have been graded" });
+      }
+
+      if (!Array.isArray(markSubdivisions)) {
+        return res.status(400).json({ error: "markSubdivisions must be an array" });
+      }
+
+      let totalMarksTarget = marks !== undefined ? Number(marks) : NaN;
+      if (!Number.isFinite(totalMarksTarget) || totalMarksTarget <= 0) {
+        const existingSubdivisions = await ActivityMarkSubdivision.find({
+          activityId: activity._id,
+        }).select("maxMarks").lean();
+
+        totalMarksTarget = existingSubdivisions.reduce(
+          (sum, sub) => sum + (Number(sub.maxMarks) || 0),
+          0
+        );
+
+        if (totalMarksTarget <= 0) {
+          const existingRubrics = await RubricCriteria.find({
+            activityId: activity._id,
+          }).select("maxMarks").lean();
+
+          totalMarksTarget = existingRubrics.reduce(
+            (sum, rb) => sum + (Number(rb.maxMarks) || 0),
+            0
+          );
+        }
+      }
+
+      if (!Number.isFinite(totalMarksTarget) || totalMarksTarget <= 0) {
+        return res.status(400).json({
+          error: "Total marks must be set before updating marks breakdown",
+        });
+      }
+
+      let subdivisionsToSave = [];
+
+      if (markSubdivisions.length > 0) {
+        let sum = 0;
+
+        for (const sub of markSubdivisions) {
+          const title = String(sub?.title || "").trim();
+          const subMarks = Number(sub?.marks);
+
+          if (!title) {
+            return res.status(400).json({
+              error: "Each mark subdivision must have a title",
+            });
+          }
+
+          if (!Number.isFinite(subMarks) || subMarks <= 0) {
+            return res.status(400).json({
+              error: "Subdivision marks must be a positive number",
+            });
+          }
+
+          sum += subMarks;
+          subdivisionsToSave.push({
+            title,
+            maxMarks: subMarks,
+          });
+        }
+
+        if (sum !== totalMarksTarget) {
+          return res.status(400).json({
+            error: `Sum of subdivision marks (${sum}) must equal total marks (${totalMarksTarget})`,
+          });
+        }
+      } else {
+        subdivisionsToSave = [
+          {
+            title: "Total Marks",
+            maxMarks: totalMarksTarget,
+          },
+        ];
+      }
+
+      await ActivityMarkSubdivision.deleteMany({ activityId: activity._id });
+      await ActivityMarkSubdivision.insertMany(
+        subdivisionsToSave.map((s) => ({
+          activityId: activity._id,
+          title: s.title,
+          maxMarks: s.maxMarks,
+        }))
       );
     }
 

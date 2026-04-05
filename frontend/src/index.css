@@ -408,10 +408,11 @@ tr:hover td {
   max-width: 420px;
   padding: 12px 14px;
   border-radius: 8px;
-  color: #22303f;
-  /* default dark text */
+  background: rgba(255, 255, 255, 0.96);
+  color: #1f2f44;
   font-weight: 600;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+  border: 1px solid #dce6f5;
+  box-shadow: 0 8px 20px rgba(12, 37, 68, 0.10);
   transform: translateY(-8px) scale(.99);
   opacity: 0;
   transition: opacity .18s ease, transform .22s cubic-bezier(.2, .9, .2, 1);
@@ -425,28 +426,32 @@ tr:hover td {
   transform: translateY(0) scale(1);
 }
 
-/* Faded background variants with colored left border and matching text color */
+/* White/near-white variants with colored accent and accessible text */
 .app-toast.success {
-  background: rgba(46, 204, 113, 0.12);
-  color: #21b573;
+  background: rgba(241, 252, 246, 0.98);
+  color: #1f5a3f;
+  border-color: #bfe8d1;
   border-left: 6px solid #21b573;
 }
 
 .app-toast.error {
-  background: rgba(255, 75, 75, 0.10);
-  color: #c0392b;
+  background: rgba(255, 243, 242, 0.98);
+  color: #7a2e27;
+  border-color: #f3c9c5;
   border-left: 6px solid #c0392b;
 }
 
 .app-toast.info {
-  background: rgba(11, 94, 215, 0.10);
-  color: #0b5ed7;
+  background: rgba(241, 247, 255, 0.98);
+  color: #1f4675;
+  border-color: #c7daf5;
   border-left: 6px solid #0b5ed7;
 }
 
 .app-toast.warn {
-  background: rgba(255, 184, 77, 0.10);
-  color: #ff9f1a;
+  background: rgba(255, 249, 238, 0.98);
+  color: #77552a;
+  border-color: #f2dfba;
   border-left: 6px solid #ff9f1a;
 }
 

@@ -365,6 +365,8 @@ function ActivityList() {
                 },
               });
 
+              setModalOpen(false);
+              setModalPayload(null);
               await loadActivities(userId);
               showToast("success", "Status updated");
             } catch (err) {
