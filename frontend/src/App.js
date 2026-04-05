@@ -1,13 +1,13 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 
-import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 // import RegisterPage from "./pages/RegisterPage"; // Signup route disabled intentionally
 import FirstLoginResetPasswordPage from "./pages/FirstLoginResetPasswordPage";
 import DashboardPage from "./pages/DashboardPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Header from "./components/Header";
+import { checkAuthStatus, getDashboardRoute } from "./services/api";
 
 // ✅ Activity Module
 import ActivityList from "./pages/activities/ActivityList";
@@ -28,6 +28,22 @@ import HODActivityList from "./pages/HODActivityList";
 // Subject Coordinator
 import SubjectAnalytics from "./pages/SubjectAnalytics";
 
+const RootRedirect = () => {
+  if (!checkAuthStatus()) {
+    return <Navigate to="/login" replace={true} />;
+  }
+
+  return <Navigate to={getDashboardRoute()} replace={true} />;
+};
+
+const LoginRedirect = () => {
+  if (checkAuthStatus()) {
+    return <Navigate to={getDashboardRoute()} replace={true} />;
+  }
+
+  return <LoginPage />;
+};
+
 function App() {
   return (
     <Router>
@@ -35,8 +51,8 @@ function App() {
       <div className="app-container">
         {/* Routes */}
         <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<LoginPage />} />
+          <Route path="/" element={<RootRedirect />} />
+          <Route path="/login" element={<LoginRedirect />} />
           {/* <Route path="/register" element={<RegisterPage />} /> */}
 
       <Route

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import api from "../services/api";
+import api, { getDashboardRoute } from "../services/api";
 import { useNavigate } from "react-router-dom";
 import showToast from "../utils/toast";
 
@@ -31,7 +31,7 @@ function LoginPage() {
       if (user?.isFirstLogin) {
         setTimeout(() => navigate("/reset-password-first-login"), 1000);
       } else {
-        setTimeout(() => navigate("/"), 1000);
+        setTimeout(() => navigate(getDashboardRoute(), { replace: true }), 1000);
       }
     } catch (err) {
       showToast("error", "Invalid email or password");

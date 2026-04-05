@@ -27,10 +27,10 @@ function Header() {
         <div className="header-center">
           <nav className="main-nav">
             {/* Home visible to everyone */}
-            <Link className="nav-link" to="/">
+            {/* <Link className="nav-link" to="/">
               <i className="fa fa-home" style={{ marginRight: 6 }}></i>
               Home
-            </Link>
+            </Link> */}
 
             {/* Dashboard visible to all logged-in users */}
             {effectiveRoles.includes("admin") && (
