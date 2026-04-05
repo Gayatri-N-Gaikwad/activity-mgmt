@@ -28,7 +28,7 @@ function LoginPage() {
       showToast("success", "Login successful! Redirecting...");
       
       // Redirect first-time users to password reset page
-      if (user?.isFirstLogin && user?.role !== "admin") {
+      if (user?.isFirstLogin) {
         setTimeout(() => navigate("/reset-password-first-login"), 1000);
       } else {
         setTimeout(() => navigate("/"), 1000);

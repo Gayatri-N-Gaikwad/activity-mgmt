@@ -254,14 +254,20 @@ function AdminDashboard() {
   // Add Subject
   const handleAddSubject = async () => {
     const { name, code, year, coordinator } = subject;
-    
-    if (!name || !code || !year || !coordinator) {
+    const payload = {
+      name: name.trim(),
+      code: code.trim(),
+      year,
+      coordinator: coordinator.trim(),
+    };
+
+    if (!payload.name || !payload.code || !payload.year || !payload.coordinator) {
       showToast("error", "All fields are required: name, code, year, and coordinator");
       return;
     }
 
     try {
-      await addSubject(subject);
+      await addSubject(payload);
       showToast("success", "Subject added successfully");
       setSubject({ name: "", code: "", year: "", coordinator: "" });
     } catch (err) {
@@ -917,6 +923,29 @@ function AdminDashboard() {
                     placeholder="e.g. CS201"
                     value={subject.code}
                     onChange={(e) => setSubject({ ...subject, code: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-row">
+                  <label>Year</label>
+                  <select
+                    value={subject.year}
+                    onChange={(e) => setSubject({ ...subject, year: e.target.value })}
+                  >
+                    <option value="">-- Select Year --</option>
+                    <option value="SY">SY</option>
+                    <option value="TE">TE</option>
+                    <option value="BE">BE</option>
+                  </select>
+                </div>
+
+                <div className="form-row">
+                  <label>Coordinator</label>
+                  <input
+                    type="email"
+                    placeholder="e.g. faculty@college.edu"
+                    value={subject.coordinator}
+                    onChange={(e) => setSubject({ ...subject, coordinator: e.target.value })}
                   />
                 </div>
 

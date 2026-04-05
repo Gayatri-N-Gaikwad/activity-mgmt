@@ -1065,7 +1065,7 @@ export const uploadFacultyFromExcel = async (req, res) => {
                 email: entry.email,
                 password: hashedPassword,
                 role,
-                isFirstLogin: role !== "admin",
+                isFirstLogin: true,
               });
             }
           } catch (userErr) {
@@ -1167,7 +1167,7 @@ export const addSingleFacultyUser = async (req, res) => {
       email,
       password: hashedDefaultPassword,
       role,
-      isFirstLogin: role !== "admin",
+      isFirstLogin: true,
     });
 
     return res.status(201).json({
