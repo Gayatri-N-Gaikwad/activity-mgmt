@@ -39,7 +39,8 @@ const app = express();
 // --------------------
 const allowedOrigins = [
   "http://localhost:3000",                // for local dev (default port)
-  "http://localhost:3001",                // for local dev (alternative port)
+  "http://localhost:3001", 
+  "https://activity-mgmt.vercel.app",               // for local dev (alternative port)
   process.env.FRONTEND_URL                // your Netlify URL (set in Render env vars)
 ].filter(Boolean); // remove undefined
 
