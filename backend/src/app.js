@@ -1,5 +1,6 @@
-import express from "express";
 import dotenv from "dotenv";
+dotenv.config();
+import express from "express";
 import cors from "cors";
 import connectDB from "./config/db.js";
 import path from "path";
@@ -24,9 +25,12 @@ import dashboardRoutes from "./routes/dashboardRoutes.js";
 
 import { startActivityCron } from "./cron/activityCron.js";
 
-dotenv.config();
+import aiRoutes from "./routes/aiRoutes.js";
+
+
 console.log("✅ ENV file loaded");
 console.log("MONGO_URI value:", process.env.MONGO_URI);
+console.log("Gemini key loaded:", process.env.GEMINI_API_KEY);
 
 const app = express();
 
@@ -118,6 +122,9 @@ app.use("/api/student-subject-marks", studentSubjectMarksRoutes); // Added route
 app.use("/api/admin", adminRoutes);
 app.use("/api/hod", hodRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+
+app.use("/ai", aiRoutes);
+
 
 
 // --------------------

@@ -24,6 +24,7 @@ logs/
 uploads/
 tmp/
 temp/
+src/uploads/
 
 # Database files
 *.db
