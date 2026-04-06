@@ -6,10 +6,14 @@ import {
   createSubject,
   assignSubjectAndClassToFaculty,
   uploadStudentsFromExcel,
+  uploadTeachingAssignmentsFromExcel,
   uploadSubjectsFromExcel,
+  uploadFacultyFromExcel,
+  addSingleFacultyUser,
   getAllClasses,
   getAllSubjects,
   getAllFaculties,
+  getFacultyDirectory,
   setAcademicYear,
   getActiveAcademicYear,
   getAdminActivities
@@ -23,13 +27,18 @@ const storage = multer.memoryStorage(); // Excel processed in memory
 const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
-    if (
-      file.mimetype ===
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    ) {
+    const allowedMimeTypes = [
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+      "application/vnd.ms-excel" // .xls
+    ];
+
+    const hasValidMime = allowedMimeTypes.includes(file.mimetype);
+    const hasValidExtension = /\.(xlsx|xls)$/i.test(file.originalname || "");
+
+    if (hasValidMime || hasValidExtension) {
       cb(null, true);
     } else {
-      cb(new Error("Only Excel files are allowed"));
+      cb(new Error("Only Excel files (.xlsx, .xls) are allowed"));
     }
   }
 });
@@ -59,6 +68,27 @@ router.post(
   uploadStudentsFromExcel
 );
 
+router.post(
+  "/assignments/upload",
+  upload.single("file"),
+  uploadTeachingAssignmentsFromExcel
+);
+
+/* ---------- NEW: Upload faculties via Excel ---------- */
+router.post(
+  "/faculties/upload",
+  upload.single("file"),
+  uploadFacultyFromExcel
+);
+
+router.post(
+  "/subjects/upload",
+  upload.single("file"),
+  uploadSubjectsFromExcel
+);
+
+router.post("/faculties/add", addSingleFacultyUser);
+
 /* ---------- Academic Year Routes ---------- */
 router.post("/academic-year", setAcademicYear);
 
@@ -67,6 +97,7 @@ router.get("/academic-year/active", getActiveAcademicYear);
 router.get("/classes", getAllClasses);
 router.get("/subjects", getAllSubjects);
 router.get("/faculties",  getAllFaculties);
+router.get("/faculty-directory", getFacultyDirectory);
 
 /* IMPORTANT: this must come BEFORE /activities/:id */
 router.get("/activities", getAdminActivities);
@@ -74,11 +105,3 @@ router.get("/activities", getAdminActivities);
 
 
 export default router;
-
-
-/* ---------- Upload subjects via Excel ---------- */
-router.post(
-  "/subjects/upload",
-  upload.single("file"),
-  uploadSubjectsFromExcel
-);

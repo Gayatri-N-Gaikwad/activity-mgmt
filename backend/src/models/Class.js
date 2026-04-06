@@ -14,12 +14,22 @@ const classSchema = new Schema({
     required: true
   },
 
-  // Google Group email for the class - used for sending activity notifications
+  // Stores Google Group link for the class
   google_group_email: {
     type: String,
-    default: null,
-    lowercase: true,
-    trim: true
+    required: true,
+    trim: true,
+    validate: {
+      validator: function (value) {
+        try {
+          const parsedUrl = new URL(value);
+          return parsedUrl.protocol === 'https:' && parsedUrl.hostname === 'groups.google.com';
+        } catch {
+          return false;
+        }
+      },
+      message: 'Enter a valid Google Group link'
+    }
   }
   
 }, { timestamps: true });

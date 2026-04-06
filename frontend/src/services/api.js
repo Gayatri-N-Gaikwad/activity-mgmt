@@ -31,6 +31,34 @@ export const checkAuthStatus = () => {
   return !!token;
 };
 
+export const getDashboardRoute = () => {
+  if (!checkAuthStatus()) {
+    return "/login";
+  }
+
+  try {
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const roles = Array.isArray(user?.roles)
+      ? user.roles
+      : user?.role
+      ? [user.role]
+      : [];
+    const normalizedRoles = roles.map((role) => String(role).toLowerCase());
+
+    if (normalizedRoles.includes("admin")) {
+      return "/admin";
+    }
+
+    if (normalizedRoles.includes("hod")) {
+      return "/hod";
+    }
+  } catch (error) {
+    // Ignore malformed user payload and fall back to default dashboard route.
+  }
+
+  return "/dashboard";
+};
+
 // attach Authorization header automatically from localStorage
 API.interceptors.request.use(
   (config) => {

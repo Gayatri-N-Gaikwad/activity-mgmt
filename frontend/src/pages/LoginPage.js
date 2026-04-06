@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import api from "../services/api";
-import { Link, useNavigate } from "react-router-dom";
+import api, { getDashboardRoute } from "../services/api";
+import { useNavigate } from "react-router-dom";
 import showToast from "../utils/toast";
 
 function LoginPage() {
@@ -27,8 +27,12 @@ function LoginPage() {
 
       showToast("success", "Login successful! Redirecting...");
       
-      // ✅ Redirect to home page
-      setTimeout(() => navigate("/"), 1000);
+      // Redirect first-time users to password reset page
+      if (user?.isFirstLogin) {
+        setTimeout(() => navigate("/reset-password-first-login"), 1000);
+      } else {
+        setTimeout(() => navigate(getDashboardRoute(), { replace: true }), 1000);
+      }
     } catch (err) {
       showToast("error", "Invalid email or password");
     }
@@ -74,7 +78,8 @@ function LoginPage() {
         </form>
 
         <p className="auth-footer">
-          Don’t have an account? <Link to="/register">Create account</Link>
+          {/* Don’t have an account? <Link to="/register">Create account</Link> */}
+          Don’t have an account? Please contact admin.
         </p>
       </div>
     </div>

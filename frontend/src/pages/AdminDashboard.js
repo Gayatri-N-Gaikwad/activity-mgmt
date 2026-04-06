@@ -9,7 +9,10 @@ import {
   getAllSubjects,
   getAllFaculties,
   uploadStudentsExcel,
-  uploadSubjectsExcel
+  uploadSubjectsExcel,
+  uploadFacultiesExcel,
+  addSingleFaculty,
+  uploadFacultyAssignmentsExcel
 } from "../services/teachingAssignmentApi";
 import showToast from "../utils/toast";
 import AdminDashboardCharts from "./AdminDashboardCharts";
@@ -23,7 +26,8 @@ function AdminDashboard() {
 
   const [classData, setClassData] = useState({
     year: "",
-    division: ""
+    division: "",
+    google_group_email: "",
   });
   const [subject, setSubject] = useState({ name: "", code: "", year: "", coordinator: "" });
 
@@ -35,6 +39,10 @@ function AdminDashboard() {
 
   const [studentFile, setStudentFile] = useState(null);
   const [subjectFile, setSubjectFile] = useState(null);
+  const [facultyFile, setFacultyFile] = useState(null);
+  const [assignmentFile, setAssignmentFile] = useState(null);
+  const [overwriteAssignments, setOverwriteAssignments] = useState(false);
+  const [singleFaculty, setSingleFaculty] = useState({ name: "", email: "", role: "Faculty" });
   const [studentClassId, setStudentClassId] = useState("");
 
   const [classes, setClasses] = useState([]);
@@ -210,18 +218,31 @@ function AdminDashboard() {
 
   // Add Class
   const handleAddClass = async () => {
-    const { year, division } = classData;
+    const { year, division, google_group_email } = classData;
 
-    if (!year || !division) {
-      showToast("error", "Select year and division");
+    if (!year || !division || !google_group_email) {
+      showToast("error", "Select year, division, and Google Group link");
       return;
     }
 
+    if (google_group_email) {
+      try {
+        const parsedUrl = new URL(google_group_email);
+        if (parsedUrl.protocol !== "https:" || parsedUrl.hostname !== "groups.google.com") {
+          showToast("error", "Enter a valid Google Group link");
+          return;
+        }
+      } catch {
+        showToast("error", "Enter a valid Google Group link");
+        return;
+      }
+    }
+
     try {
-      await addClass({ year, division });
+      await addClass({ year, division, google_group_email: google_group_email.trim() });
       showToast("success", "Class added successfully");
 
-      setClassData({ year: "", division: "" });
+      setClassData({ year: "", division: "", google_group_email: "" });
     } catch (err) {
       const message =
         err?.response?.data?.message || "Error adding class";
@@ -233,14 +254,20 @@ function AdminDashboard() {
   // Add Subject
   const handleAddSubject = async () => {
     const { name, code, year, coordinator } = subject;
-    
-    if (!name || !code || !year || !coordinator) {
+    const payload = {
+      name: name.trim(),
+      code: code.trim(),
+      year,
+      coordinator: coordinator.trim(),
+    };
+
+    if (!payload.name || !payload.code || !payload.year || !payload.coordinator) {
       showToast("error", "All fields are required: name, code, year, and coordinator");
       return;
     }
 
     try {
-      await addSubject(subject);
+      await addSubject(payload);
       showToast("success", "Subject added successfully");
       setSubject({ name: "", code: "", year: "", coordinator: "" });
     } catch (err) {
@@ -310,7 +337,7 @@ function AdminDashboard() {
 
     try {
       const response = await uploadSubjectsExcel(formData);
-      const { successCount, duplicateCount, errorCount, errors, validationErrors, createdSubjects } = response.data;
+      const { successCount, duplicateCount, errorCount, errors, validationErrors } = response.data;
 
       if (errorCount > 0 || (validationErrors && validationErrors.length > 0)) {
         // Show detailed error information
@@ -340,6 +367,94 @@ function AdminDashboard() {
       showToast("error", err?.response?.data?.error || "Failed to upload subjects");
     }
   };
+
+  // Upload faculty user data
+  const handleFacultyUpload = async () => {
+    if (!facultyFile) {
+      showToast("error", "Please select an Excel file");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", facultyFile);
+
+    try {
+      const response = await uploadFacultiesExcel(formData);
+      const { inserted, failed, message } = response.data || {};
+
+      const successCount = Number(inserted || 0);
+      const failedCount = Number(failed || 0);
+      let toastMessage = message || `Uploaded ${successCount} faculty record(s)`;
+
+      if (failedCount > 0) {
+        toastMessage += ` (${failedCount} failed)`;
+      }
+
+      showToast(failedCount > 0 ? "warning" : "success", toastMessage);
+      setFacultyFile(null);
+    } catch (err) {
+      showToast("error", err?.response?.data?.message || "Failed to upload faculties");
+    }
+  };
+
+  const handleSingleFacultyAdd = async () => {
+    const name = String(singleFaculty.name || "").trim();
+    const email = String(singleFaculty.email || "").trim().toLowerCase();
+    const role = String(singleFaculty.role || "").trim();
+
+    if (!name || !email || !role) {
+      showToast("error", "Name, email, and role are required");
+      return;
+    }
+
+    try {
+      const res = await addSingleFaculty({ name, email, role });
+      showToast("success", res?.message || "Faculty/user added successfully");
+      if (res?.defaultPassword) {
+        showToast("info", `Default password: ${res.defaultPassword}`);
+      }
+      setSingleFaculty({ name: "", email: "", role: "Faculty" });
+      if (activeTab === "assign") {
+        getAllFaculties().then(setFaculties).catch(() => {});
+      }
+    } catch (err) {
+      showToast("error", err?.response?.data?.message || "Failed to add faculty/user");
+    }
+  };
+
+  const handleAssignmentUpload = async () => {
+    if (!assignmentFile) {
+      showToast("error", "Please select an Excel file");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", assignmentFile);
+    formData.append("overwrite", String(overwriteAssignments));
+
+    try {
+      const response = await uploadFacultyAssignmentsExcel(formData);
+      const {
+        createdCount = 0,
+        updatedCount = 0,
+        skippedCount = 0,
+        errorCount = 0,
+        errors = []
+      } = response.data || {};
+
+      let message = `Upload complete: ${createdCount} created, ${updatedCount} updated, ${skippedCount} skipped`;
+      if (errorCount > 0) {
+        const firstFew = errors.slice(0, 3).map((e) => `Row ${e.row}: ${e.error}`).join(" | ");
+        message += `. ${errorCount} error(s). ${firstFew}`;
+      }
+
+      showToast(errorCount > 0 ? "warning" : "success", message);
+      setAssignmentFile(null);
+    } catch (err) {
+      showToast("error", err?.response?.data?.message || "Failed to upload faculty assignments");
+    }
+  };
+
 
   const handleSetAcademicYear = async () => {
     if (!academicYear || !semesterStartDate || !semesterEndDate) {
@@ -406,6 +521,14 @@ function AdminDashboard() {
           >
             <i className="fa fa-file-excel"></i>
             <span>Upload Subjects</span>
+          </button>
+
+          <button
+            className={`admin-nav-btn ${activeTab === "uploadFaculties" ? "active" : ""}`}
+            onClick={() => setActiveTab("uploadFaculties")}
+          >
+            <i className="fa fa-user-plus"></i>
+            <span>Upload Faculties</span>
           </button>
 
           <button
@@ -625,6 +748,106 @@ function AdminDashboard() {
             </div>
           )}
 
+
+
+          {activeTab === "uploadFaculties" && (
+            <div className="card create-activity-card" style={{ maxWidth: "700px", margin: "0 auto" }}>
+              <div className="form-brand">Bulk Import</div>
+              <h2 className="form-title">Upload Faculties from Excel</h2>
+              <p className="form-subtitle">Save faculty names and emails in the faculty directory for registration whitelist and coordinator lookup.</p>
+
+              <div className="create-form">
+                <div className="form-row">
+                  <label>Select Excel File</label>
+                  <div style={{ position: "relative", display: "inline-block", width: "100%" }}>
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={(e) => setFacultyFile(e.target.files?.[0] || null)}
+                      style={{
+                        padding: "12px",
+                        border: "2px dashed #e2e8f0",
+                        borderRadius: "8px",
+                        width: "100%",
+                        cursor: "pointer",
+                        boxSizing: "border-box"
+                      }}
+                    />
+                    <span style={{ color: "#666", fontSize: "12px", marginTop: "8px", display: "block" }}>
+                      {facultyFile ? `Selected: ${facultyFile.name}` : "Choose an .xlsx or .xls file"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="status-alert status-alert-info" style={{ marginTop: "16px", display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                  <i className="fa fa-info-circle"></i>
+                  <div>
+                    <strong>Expected Excel Format (Required columns):</strong>
+                    <div style={{ marginTop: "8px", fontSize: "13px", lineHeight: "1.6" }}>
+                      <p style={{ margin: "4px 0" }}>Column 1: <b>name</b> (e.g., Jane Doe)</p>
+                      <p style={{ margin: "4px 0" }}>Column 2: <b>email</b> (e.g., jane@college.edu)</p>
+                      <p style={{ margin: "4px 0" }}>Column 3: <b>role</b> (Faculty, HOD, admin)</p>
+                    </div>
+                    <p style={{ marginTop: "8px", fontSize: "12px", color: "#475569" }}>
+                      Uploaded emails will be allowed to register only if they exist in this faculty directory.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="form-actions" style={{ marginTop: "24px" }}>
+                  <button className="btn btn-primary" onClick={handleFacultyUpload} disabled={!facultyFile}>
+                    <i className="fa fa-upload" style={{ marginRight: "8px" }}></i> Upload Faculties
+                  </button>
+                </div>
+
+                <div style={{ marginTop: "28px", borderTop: "1px solid #e2e8f0", paddingTop: "22px" }}>
+                  <h3 style={{ margin: "0 0 10px 0", fontSize: "18px" }}>Add Single Faculty/User</h3>
+                  <p className="muted" style={{ marginBottom: "14px" }}>
+                    Use this when you need to add one new faculty/user without uploading Excel.
+                  </p>
+
+                  <div className="form-row">
+                    <label>Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Jane Doe"
+                      value={singleFaculty.name}
+                      onChange={(e) => setSingleFaculty((prev) => ({ ...prev, name: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="form-row">
+                    <label>Email</label>
+                    <input
+                      type="email"
+                      placeholder="e.g. jane@college.edu"
+                      value={singleFaculty.email}
+                      onChange={(e) => setSingleFaculty((prev) => ({ ...prev, email: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="form-row">
+                    <label>Role</label>
+                    <select
+                      value={singleFaculty.role}
+                      onChange={(e) => setSingleFaculty((prev) => ({ ...prev, role: e.target.value }))}
+                    >
+                      <option value="Faculty">Faculty</option>
+                      <option value="HOD">HOD</option>
+                      <option value="admin">admin</option>
+                    </select>
+                  </div>
+
+                  <div className="form-actions" style={{ marginTop: "14px" }}>
+                    <button className="btn btn-outline" onClick={handleSingleFacultyAdd}>
+                      <i className="fa fa-user-plus" style={{ marginRight: "8px" }}></i> Add Faculty/User
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab === "addClass" && (
             <div className="card create-activity-card" style={{ maxWidth: "600px", margin: "0 auto" }}>
               <div className="form-brand">Create</div>
@@ -656,6 +879,17 @@ function AdminDashboard() {
                     <option value="10">Div 10</option>
                     <option value="11">Div 11</option>
                   </select>
+                </div>
+
+                <div className="form-row">
+                  <label>Google Group Link *</label>
+                  <input
+                    type="url"
+                    required
+                    placeholder="https://groups.google.com/g/your-class-group"
+                    value={classData.google_group_email}
+                    onChange={(e) => setClassData({ ...classData, google_group_email: e.target.value })}
+                  />
                 </div>
 
                 <div className="form-actions" style={{ marginTop: "24px" }}>
@@ -692,6 +926,29 @@ function AdminDashboard() {
                   />
                 </div>
 
+                <div className="form-row">
+                  <label>Year</label>
+                  <select
+                    value={subject.year}
+                    onChange={(e) => setSubject({ ...subject, year: e.target.value })}
+                  >
+                    <option value="">-- Select Year --</option>
+                    <option value="SY">SY</option>
+                    <option value="TE">TE</option>
+                    <option value="BE">BE</option>
+                  </select>
+                </div>
+
+                <div className="form-row">
+                  <label>Coordinator</label>
+                  <input
+                    type="email"
+                    placeholder="e.g. faculty@college.edu"
+                    value={subject.coordinator}
+                    onChange={(e) => setSubject({ ...subject, coordinator: e.target.value })}
+                  />
+                </div>
+
                 <div className="form-actions" style={{ marginTop: "24px" }}>
                   <button className="btn btn-primary" onClick={handleAddSubject}>Add Subject</button>
                 </div>
@@ -700,12 +957,85 @@ function AdminDashboard() {
           )}
 
           {activeTab === "assign" && (
-            <div className="card create-activity-card" style={{ maxWidth: "600px", margin: "0 auto" }}>
+            <div className="card create-activity-card" style={{ maxWidth: "760px", margin: "0 auto" }}>
               <div className="form-brand">Allocation</div>
               <h2 className="form-title">Assign Faculty</h2>
               <p className="form-subtitle">Map a faculty member to a specific subject and class division.</p>
 
               <div className="create-form">
+                <div style={{ border: "1px solid #dbe7f7", borderRadius: "10px", padding: "16px", background: "#f8fbff", marginBottom: "20px" }}>
+                  <h3 style={{ margin: "0 0 8px 0", fontSize: "18px" }}>Assign Faculties from Excel</h3>
+                  <p className="muted" style={{ marginBottom: "12px" }}>
+                    Upload Excel and assign faculty in one go. This supports only theory mapping rows.
+                  </p>
+
+                  <div className="form-row" style={{ marginBottom: "10px" }}>
+                    <label>Select Excel File</label>
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={(e) => setAssignmentFile(e.target.files?.[0] || null)}
+                      style={{
+                        padding: "12px",
+                        border: "2px dashed #cdddf4",
+                        borderRadius: "8px",
+                        width: "100%",
+                        cursor: "pointer",
+                        boxSizing: "border-box"
+                      }}
+                    />
+                    <span style={{ color: "#64748b", fontSize: "12px", marginTop: "8px", display: "block" }}>
+                      {assignmentFile ? `Selected: ${assignmentFile.name}` : "Choose an .xlsx or .xls file"}
+                    </span>
+                  </div>
+
+                  <div className="form-row" style={{ marginBottom: "8px" }}>
+                    <label
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "10px",
+                        marginBottom: 0,
+                        fontWeight: 600,
+                        color: "#334155",
+                        cursor: "pointer"
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={overwriteAssignments}
+                        onChange={(e) => setOverwriteAssignments(e.target.checked)}
+                        style={{ width: "16px", height: "16px", cursor: "pointer", margin: 0 }}
+                      />
+                      Replace existing assignments when subject is already allocated
+                    </label>
+                  </div>
+
+                  <div className="status-alert status-alert-info" style={{ marginTop: "10px", display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                    <i className="fa fa-info-circle"></i>
+                    <div style={{ fontSize: "13px", lineHeight: "1.5" }}>
+                      <strong>Expected Excel Columns:</strong> year, division, subjectCode, facultyName.
+                      <div style={{ marginTop: "6px" }}>
+                        Example row: SY | 9 | ADSA | Mrs. J. H. Jadhav
+                      </div>
+                      <div style={{ marginTop: "6px", color: "#475569" }}>
+                        Faculty names are resolved from faculty directory. Names must match exactly as stored in the directory.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="form-actions" style={{ marginTop: "14px" }}>
+                    <button className="btn btn-primary" onClick={handleAssignmentUpload} disabled={!assignmentFile}>
+                      <i className="fa fa-upload" style={{ marginRight: "8px" }}></i> Upload & Assign
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ borderTop: "1px dashed #d7e3f5", marginBottom: "16px", paddingTop: "16px" }}>
+                  <h3 style={{ margin: "0 0 8px 0", fontSize: "18px" }}>Single Assignment</h3>
+                  <p className="muted" style={{ marginBottom: "0" }}>Use this form for one-off faculty allocation.</p>
+                </div>
+
                 <div className="form-row">
                   <label>Select Faculty</label>
                   <select
@@ -803,29 +1133,6 @@ function AdminDashboard() {
                       </span>
                     </div>
                   </div>
-
-                <div className="form-row">
-                  <label>Year</label>
-                  <select
-                    value={subject.year}
-                    onChange={(e) => setSubject({ ...subject, year: e.target.value })}
-                  >
-                    <option value="">Select Year</option>
-                    <option value="SY">SY (Second Year)</option>
-                    <option value="TE">TE (Third Year)</option>
-                    <option value="BE">BE (Fourth Year)</option>
-                  </select>
-                </div>
-
-                <div className="form-row">
-                  <label>Coordinator (Faculty Email or ID)</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. john@email.com or user_id"
-                    value={subject.coordinator}
-                    onChange={(e) => setSubject({ ...subject, coordinator: e.target.value })}
-                  />
-                </div>
 
                 </div>
 

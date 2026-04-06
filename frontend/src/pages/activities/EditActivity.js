@@ -20,6 +20,22 @@ function EditActivity() {
   // Mark subdivisions state
   const [markSubdivisions, setMarkSubdivisions] = useState([]);
 
+  const addSubdivision = () => {
+    setMarkSubdivisions((prev) => [...prev, { _id: `new-${Date.now()}`, title: "", marks: "" }]);
+  };
+
+  const removeSubdivision = (index) => {
+    setMarkSubdivisions((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const updateSubdivision = (index, field, value) => {
+    setMarkSubdivisions((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
+  };
+
   // Lock if activity is conducted
   const ownLocked = activity.status === "Conducted";
 
@@ -32,11 +48,22 @@ function EditActivity() {
       // Fetch main activity
       const res = await API.get(`/activities/${id}`);
       const act = res.data.activity;
-      setActivity(act);
 
       // Fetch mark subdivisions
       const subsRes = await API.get(`/activities/${id}/mark-subdivisions`);
-      setMarkSubdivisions(subsRes.data || []);
+      const subs = Array.isArray(subsRes.data) ? subsRes.data : [];
+      const normalizedSubs = subs.map((s) => ({
+        _id: s._id,
+        title: s.title || "",
+        marks: Number(s.maxMarks ?? 0),
+      }));
+      setMarkSubdivisions(normalizedSubs);
+
+      const totalMarks = normalizedSubs.reduce((sum, s) => sum + (Number(s.marks) || 0), 0);
+      setActivity({
+        ...act,
+        marks: totalMarks > 0 ? String(totalMarks) : "",
+      });
     } catch (err) {
       console.error('Error fetching activity or subdivisions', err);
       showToast('error', 'Failed to load activity');
@@ -53,12 +80,48 @@ function EditActivity() {
 
     const toSend = {
       name: activity.name,
-      description: activity.description
+      description: activity.description,
     };
 
-    // Include marks if it's provided and activity not conducted
-    if (activity.marks && marksEditable) {
-      toSend.marks = activity.marks;
+    // Include marks and editable breakdown only when status allows edits.
+    if (marksEditable) {
+      const finalMarks = Number(activity.marks);
+      if (!Number.isFinite(finalMarks) || finalMarks <= 0) {
+        showToast('error', 'Enter valid total marks');
+        return;
+      }
+
+      toSend.marks = finalMarks;
+
+      const hasAnySubdivisionValue = markSubdivisions.some((s) => (s.title || '').trim() || String(s.marks || '').trim());
+      let subdivisionPayload = [];
+
+      if (hasAnySubdivisionValue) {
+        let sum = 0;
+        for (const s of markSubdivisions) {
+          const title = (s.title || '').trim();
+          if (!title) {
+            showToast('error', 'All subdivision names are required');
+            return;
+          }
+
+          const marks = Number(s.marks);
+          if (!Number.isFinite(marks) || marks <= 0) {
+            showToast('error', 'Subdivision marks must be valid positive numbers');
+            return;
+          }
+
+          sum += marks;
+          subdivisionPayload.push({ title, marks });
+        }
+
+        if (sum !== finalMarks) {
+          showToast('error', `Subdivision marks (${sum}) must equal total marks (${finalMarks})`);
+          return;
+        }
+      }
+
+      toSend.markSubdivisions = subdivisionPayload;
     }
 
     // Only update scheduleDate if activity not locked
@@ -155,21 +218,60 @@ function EditActivity() {
             </div>
           )}
 
-          {/* Mark Subdivisions Display */}
-          {markSubdivisions.length > 0 && (
+          {/* Editable Mark Subdivisions */}
+          {marksEditable && (
+            <div className="form-row">
+              <label>Marks Breakdown</label>
+              <div className="breakdown-list">
+                {markSubdivisions.map((row, idx) => (
+                  <div key={row._id || idx} className="breakdown-row">
+                    <input
+                      placeholder="Subtopic / Component"
+                      value={row.title}
+                      onChange={(e) => updateSubdivision(idx, 'title', e.target.value)}
+                    />
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      placeholder="Marks"
+                      value={row.marks}
+                      onChange={(e) => updateSubdivision(idx, 'marks', e.target.value)}
+                      className="marks-input"
+                    />
+                    {markSubdivisions.length > 1 && (
+                      <button type="button" className="btn-remove" onClick={() => removeSubdivision(idx)}>
+                        x
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <button type="button" className="btn btn-outline" onClick={addSubdivision}>
+                + Add Subdivision
+              </button>
+
+              <small style={{ color: "#666", display: "inline-block", marginTop: "8px" }}>
+                Keep subdivision total equal to total marks.
+              </small>
+            </div>
+          )}
+
+          {!marksEditable && markSubdivisions.length > 0 && (
             <div className="form-row">
               <label>Marks Breakdown</label>
               <div className="breakdown-list" style={{ marginTop: "10px", padding: "10px", background: "#f8fbff", border: "1px solid #dbe4f1", borderRadius: "8px" }}>
                 <ul style={{ margin: 0, paddingLeft: "20px", color: "#1a3d63", fontWeight: "600" }}>
                   {markSubdivisions.map((s) => (
                     <li key={s._id} style={{ marginBottom: "6px" }}>
-                      {s.title} – {s.maxMarks} marks
+                      {s.title} - {s.marks} marks
                     </li>
                   ))}
                 </ul>
               </div>
               <small style={{ color: "#666", display: "inline-block", marginTop: "8px" }}>
-                Marks breakdown is for information only and cannot be edited.
+                Breakdown cannot be edited after activity is conducted or marks are updated.
               </small>
             </div>
           )}

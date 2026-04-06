@@ -1,5 +1,5 @@
 import express from "express";
-import { registerUser, loginUser, healthCheck } from "../controllers/authController.js";
+import { registerUser, loginUser, healthCheck, changePasswordFirstTime } from "../controllers/authController.js";
 import jwt from "jsonwebtoken";
 
 // Debug helper: decode token and return payload (no role checks)
@@ -19,8 +19,9 @@ const debugToken = (req, res) => {
 const router = express.Router();
 
 router.get("/health", healthCheck);
-router.post("/register", registerUser);
+// router.post("/register", registerUser); // Signup disabled intentionally
 router.post("/login", loginUser);
+router.post("/change-password-first-time", changePasswordFirstTime);
 router.get("/debug-token", debugToken);
 
 export default router;

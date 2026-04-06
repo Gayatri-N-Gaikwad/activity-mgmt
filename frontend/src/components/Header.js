@@ -5,6 +5,13 @@ import LogoutButton from "./LogoutButton";
 function Header() {
   const user = JSON.parse(localStorage.getItem("user")) || null;
   const navigate = useNavigate();
+  const effectiveRoles = user
+    ? Array.isArray(user.roles) && user.roles.length > 0
+      ? user.roles
+      : user.role
+        ? [user.role]
+        : []
+    : [];
 
   return (
     <header className="app-header">
@@ -20,47 +27,41 @@ function Header() {
         <div className="header-center">
           <nav className="main-nav">
             {/* Home visible to everyone */}
-            <Link className="nav-link" to="/">
+            {/* <Link className="nav-link" to="/">
               <i className="fa fa-home" style={{ marginRight: 6 }}></i>
               Home
-            </Link>
+            </Link> */}
 
             {/* Dashboard visible to all logged-in users */}
-            {user && user.role === "admin" && (
+            {effectiveRoles.includes("admin") && (
               <Link className="nav-link" to="/admin">
                 <i className="fa fa-chart-line" style={{ marginRight: 6 }}></i>
                 Dashboard
               </Link>
             )}
 
-            {user && user.role === "HOD" && (
+            {effectiveRoles.includes("HOD") && (
               <Link className="nav-link" to="/hod">
                 <i className="fa fa-chart-line" style={{ marginRight: 6 }}></i>
-                Dashboard
+                HOD Dashboard
               </Link>
             )}
 
-            {user && user.role !== "admin" && user.role !== "HOD" && (
-              <Link className="nav-link" to="/dashboard">
-                <i className="fa fa-chart-line" style={{ marginRight: 6 }}></i>
-                Dashboard
-              </Link>
-            )}
-
-            {/* Activities ONLY for non-admin roles */}
-            {user && user.role !== "admin" && user.role !== "HOD" && (
-              <Link className="nav-link" to="/activities">
-                <i className="fa fa-list" style={{ marginRight: 6 }}></i>
-                Activities
-              </Link>
-            )}
-
-            {/* Subject Analytics for faculty (Coordinator) */}
-            {user && user.role !== "admin" && user.role !== "HOD" && (
-              <Link className="nav-link" to="/subject-analytics">
-                <i className="fa fa-chart-pie" style={{ marginRight: 6 }}></i>
-                Subject Analytics
-              </Link>
+            {effectiveRoles.includes("Faculty") && (
+              <>
+                <Link className="nav-link" to="/dashboard">
+                  <i className="fa fa-chart-line" style={{ marginRight: 6 }}></i>
+                  Faculty Dashboard
+                </Link>
+                <Link className="nav-link" to="/activities">
+                  <i className="fa fa-list" style={{ marginRight: 6 }}></i>
+                  Activities
+                </Link>
+                <Link className="nav-link" to="/subject-analytics">
+                  <i className="fa fa-chart-pie" style={{ marginRight: 6 }}></i>
+                  Subject Analytics
+                </Link>
+              </>
             )}
           </nav>
         </div>

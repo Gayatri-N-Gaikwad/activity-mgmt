@@ -23,7 +23,7 @@ function RegisterPage() {
       setMessage("✅ Registered successfully! Redirecting to login...");
       setTimeout(() => navigate("/login"), 1500);
     } catch (err) {
-      setMessage("❌ Registration failed (maybe email already exists)");
+      setMessage(`❌ ${err.response?.data?.message || "Registration failed"}`);
     }
   };
 
@@ -33,6 +33,7 @@ function RegisterPage() {
         <div className="auth-brand">Faculty Portal</div>
         <h2 className="auth-title">Create account</h2>
         <p className="auth-subtitle">Register once to access your dashboard and activities.</p>
+      <p className="auth-subtitle" style={{ marginTop: "-6px" }}>Your email must already exist in the faculty directory uploaded by the admin.</p>
 
         <form className="auth-form" onSubmit={handleRegister}>
           <div className="auth-field">
@@ -77,7 +78,6 @@ function RegisterPage() {
             <label htmlFor="role">Role</label>
             <select id="role" name="role" value={formData.role} onChange={handleChange}>
               <option value="Faculty">Faculty</option>
-              <option value="Coordinator">Coordinator</option>
               <option value="HOD">HOD</option>
             </select>
           </div>

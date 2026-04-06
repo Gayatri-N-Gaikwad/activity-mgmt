@@ -7,8 +7,8 @@ export const getAllTeachingAssignments = async () => {
 };
 
 // Add new class
-export const addClass = async ({ year, division }) => {
-  const res = await API.post("/admin/addclass", { year, division });
+export const addClass = async ({ year, division, google_group_email }) => {
+  const res = await API.post("/admin/addclass", { year, division, google_group_email });
   return res.data;
 };
 
@@ -75,6 +75,28 @@ export const getActiveAcademicYear = async () => {
 // Upload subjects from Excel
 export const uploadSubjectsExcel = (formData) => {
   return API.post("/admin/subjects/upload", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data"
+    }
+  });
+};
+
+// Upload faculties from Excel
+export const uploadFacultiesExcel = (formData) => {
+  return API.post("/admin/faculties/upload", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data"
+    }
+  });
+};
+
+export const addSingleFaculty = async ({ name, email, role }) => {
+  const res = await API.post("/admin/faculties/add", { name, email, role });
+  return res.data;
+};
+
+export const uploadFacultyAssignmentsExcel = (formData) => {
+  return API.post("/admin/assignments/upload", formData, {
     headers: {
       "Content-Type": "multipart/form-data"
     }
