@@ -633,3 +633,142 @@ export const getCoordinatorDashboardStats = async (req, res) => {
   }
 
 };
+
+// ************************ Faculty Dashboard Analytics *********************************
+
+export const getFacultyDashboardStats = async (req, res) => {
+  try {
+    const facultyId = req.user.id;
+    
+    // Find all teaching assignments for this faculty
+    const assignments = await TeachingAssignment.find({ facultyId })
+      .populate("subjectId", "name")
+      .lean();
+      
+    if (!assignments.length) {
+      return res.json({
+        hasAssignments: false,
+        performance: [],
+        attendance: [],
+        marksDistribution: [],
+        lifecycle: [],
+        topStudents: [],
+        pendingActivities: []
+      });
+    }
+
+    const assignmentIds = assignments.map(a => a._id);
+    const subjectNames = Array.from(new Set(assignments.map(a => a.subjectId?.name).filter(Boolean)));
+    const classes = Array.from(new Set(assignments.map(a => `${a.year}-${a.division}`)));
+
+    // Fetch activities for these assignments
+    const activities = await Activity.find({ assignmentId: { $in: assignmentIds } }).lean();
+    
+    const lifecycle = { Scheduled: 0, Conducted: 0, Marks_Updated: 0 };
+    const pendingActivities = [];
+    
+    activities.forEach(act => {
+      if (lifecycle[act.status] !== undefined) {
+        lifecycle[act.status]++;
+      }
+      if (act.status === "Conducted") {
+        const assignment = assignments.find(as => String(as._id) === String(act.assignmentId));
+        pendingActivities.push({
+          _id: act._id,
+          name: act.name,
+          subjectName: assignment?.subjectId?.name || "Unknown",
+          class: assignment ? `${assignment.year}-${assignment.division}` : "Unknown",
+          date: act.scheduleDate
+        });
+      }
+    });
+
+    // Fetch marks for these assignments
+    const marksDocs = await StudentSubjectMarks.find({
+      $or: assignments.map(a => ({
+        subjectId: a.subjectId,
+        year: a.year,
+        division: a.division
+      }))
+    }).populate("studentId", "name rollNumber").lean();
+
+    const performanceMap = new Map(); // subject -> { total, count }
+    const marksDistribution = { "0-40%": 0, "40-60%": 0, "60-80%": 0, "80-100%": 0 };
+    let presentCount = 0;
+    let absentCount = 0;
+    
+    const studentPerformance = new Map(); // studentId -> { totalMarks, subjectCount }
+
+    marksDocs.forEach(doc => {
+      const assignment = assignments.find(
+        a => String(a.subjectId?._id || a.subjectId) === String(doc.subjectId) && 
+             a.year === doc.year && a.division === doc.division
+      );
+      if (!assignment) return;
+
+      const subName = assignment.subjectId?.name || "Unknown";
+      const prev = performanceMap.get(subName) || { total: 0, count: 0 };
+      prev.total += (doc.totalMarks || 0);
+      prev.count += 1;
+      performanceMap.set(subName, prev);
+
+      // Score distribution (assuming marks are out of 15)
+      const percentage = (doc.totalMarks / 15) * 100;
+      if (percentage < 40) marksDistribution["0-40%"] += 1;
+      else if (percentage < 60) marksDistribution["40-60%"] += 1;
+      else if (percentage < 80) marksDistribution["60-80%"] += 1;
+      else marksDistribution["80-100%"] += 1;
+
+      // Attendance
+      (doc.activities || []).forEach(act => {
+        const isThisFacultyAct = activities.some(a => String(a._id) === String(act.activityId));
+        if (isThisFacultyAct) {
+          if (act.attendance === "Absent") absentCount += 1;
+          else presentCount += 1;
+        }
+      });
+
+      // Top students tracking
+      const stuId = String(doc.studentId?._id || doc.studentId);
+      const stuStats = studentPerformance.get(stuId) || { name: doc.studentId?.name, total: 0, count: 0 };
+      stuStats.total += (doc.totalMarks || 0);
+      stuStats.count += 1;
+      studentPerformance.set(stuId, stuStats);
+    });
+
+    const performance = Array.from(performanceMap.entries()).map(([name, val]) => ({
+      name,
+      avgMarks: val.count ? Number((val.total / val.count).toFixed(2)) : 0
+    }));
+
+    const topStudents = Array.from(studentPerformance.values())
+      .map(s => ({ name: s.name, avgMarks: s.count ? Number((s.total / s.count).toFixed(2)) : 0 }))
+      .sort((a, b) => b.avgMarks - a.avgMarks)
+      .slice(0, 5);
+
+    return res.json({
+      hasAssignments: true,
+      meta: {
+        subjects: subjectNames,
+        classes: classes
+      },
+      performance,
+      attendance: [
+        { name: "Present", value: presentCount },
+        { name: "Absent", value: absentCount }
+      ],
+      marksDistribution: Object.entries(marksDistribution).map(([range, count]) => ({ range, count })),
+      lifecycle: [
+        { stage: "Scheduled", count: lifecycle.Scheduled },
+        { stage: "Conducted", count: lifecycle.Conducted },
+        { stage: "Marks Updated", count: lifecycle.Marks_Updated }
+      ],
+      topStudents,
+      pendingActivities: pendingActivities.sort((a, b) => new Date(b.date) - new Date(a.date))
+    });
+
+  } catch (error) {
+    console.error("getFacultyDashboardStats error:", error);
+    res.status(500).json({ error: "Unable to load faculty dashboard stats" });
+  }
+};

@@ -11,128 +11,171 @@ function AddMarks() {
   const [marksData, setMarksData] = useState({});
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [manualEdits, setManualEdits] = useState(new Set()); // studentIds that have been manually touched
 
   const toRollNumber = (value) => {
     const num = Number(value);
     return Number.isFinite(num) ? num : 0;
   };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch activity with rubric
-        const resAct = await API.get(`/activities/${activityId}`);
-        const activityDetails = resAct.data.activity;
-        const rubric = resAct.data.rubric || [];
+  const fetchData = async (showLoading = true) => {
+    try {
+      if (showLoading) setLoading(true);
+      // Fetch activity with rubric
+      const resAct = await API.get(`/activities/${activityId}`);
+      const activityDetails = resAct.data.activity;
+      const rubric = resAct.data.rubric || [];
 
-        if (!activityDetails) {
-          showToast("error", "Activity not found");
-          setLoading(false);
-          return;
-        }
+      if (!activityDetails) {
+        showToast("error", "Activity not found");
+        if (showLoading) setLoading(false);
+        return;
+      }
 
-        console.log("Activity details:", activityDetails);
+      setActivity({ ...activityDetails, rubric });
 
-        if (!activityDetails.assignmentId) {
-          console.error("Activity missing assignmentId:", activityDetails);
-          showToast("error", "Activity is missing assignment information");
-          setLoading(false);
-          return;
-        }
+      // Fetch assignment to get classId and subjectId
+      const assignmentId =
+        activityDetails.assignmentId?._id || activityDetails.assignmentId;
 
-        setActivity({ ...activityDetails, rubric });
+      const resAssign = await API.get(`/teaching-assignment/${assignmentId}`);
+      const assignment = resAssign.data.assignment;
 
-        // Fetch assignment to get classId and subjectId
-        const assignmentId =
-          activityDetails.assignmentId?._id || activityDetails.assignmentId;
+      if (!assignment) {
+        showToast("error", "Teaching assignment not found");
+        if (showLoading) setLoading(false);
+        return;
+      }
 
-        const resAssign = await API.get(`/teaching-assignment/${assignmentId}`);
-        const assignment = resAssign.data.assignment;
+      const year = assignment.year;
+      const division = assignment.division;
 
-        console.log("Assignment response:", resAssign.data);
+      // Fetch students by year and division
+      const resStudents = await API.get(`/students/by-year-division/${year}/${division}`);
+      const studentsList = [...(resStudents.data?.students || [])].sort(
+        (a, b) => toRollNumber(a.rollNumber) - toRollNumber(b.rollNumber)
+      );
 
-        if (!assignment) {
-          console.error(
-            "Assignment not found for assignmentId:",
-            activityDetails.assignmentId,
-          );
-          showToast("error", "Teaching assignment not found");
-          setLoading(false);
-          return;
-        }
+      setStudents(studentsList);
 
-        // Extract IDs - assignment has year, division (no classId)
-        const subjId = assignment.subjectId?._id || assignment.subjectId;
-        const year = assignment.year;
-        const division = assignment.division;
+      // Fetch existing marks
+      const resMarks = await API.get(`/marks/activity/${activityId}`);
+      const existingMarks = resMarks.data.marks || [];
 
-        console.log("Assignment data:", assignment);
-
-        if (!subjId || !year || !division) {
-          console.error("Missing IDs - Subject:", subjId, "Year:", year, "Division:", division);
-          showToast("error", "Subject or class (year/division) not found");
-          setLoading(false);
-          return;
-        }
-
-        // Fetch students by year and division
-        const resStudents = await API.get(`/students/by-year-division/${year}/${division}`);
-        const studentsList = [...(resStudents.data?.students || [])].sort(
-          (a, b) => toRollNumber(a.rollNumber) - toRollNumber(b.rollNumber)
+      // Initialize marksData for all students
+      const initialMarks = {};
+      studentsList.forEach((student) => {
+        const existing = existingMarks.find(
+          (m) => String(m.studentId?._id || m.studentId) === String(student._id),
+        );
+        const existingActivity = existing?.activities.find(
+          (a) => String(a.activityId?._id || a.activityId) === String(activityId),
         );
 
-        console.log("Fetched students:", studentsList.length, studentsList);
+        initialMarks[student._id] = {
+          rubricMarks: rubric.map((r) => {
+            const existingMark = existingActivity?.rubricMarks.find(
+              (rm) => String(rm.criteriaId?._id || rm.criteriaId) === String(r._id),
+            );
+            return {
+              criteriaId: r._id,
+              name: r.name,
+              maxMarks: r.maxMarks,
+              marks: existingMark?.marks ?? "",
+            };
+          }),
+          originallyAbsent: (existingActivity?.attendance || "Present") === "Absent",
+          attendance: existingActivity?.attendance || "Present",
+          exists: !!existing,
+          id: existing?._id,
+        };
+      });
 
-        if (studentsList.length === 0) {
-          console.warn("No students found for", year, division);
-          showToast("warning", "No students found for this class");
-        }
+      setMarksData(initialMarks);
+      if (showLoading) setLoading(false);
+    } catch (err) {
+      console.error(err);
+      showToast("error", "Failed to load data");
+      if (showLoading) setLoading(false);
+    }
+  };
 
-        setStudents(studentsList);
-
-        // Fetch existing marks
-        const resMarks = await API.get(`/marks/activity/${activityId}`);
-        const existingMarks = resMarks.data.marks || [];
-
-        // Initialize marksData for all students
-        const initialMarks = {};
-        studentsList.forEach((student) => {
-          const existing = existingMarks.find(
-            (m) => String(m.studentId?._id || m.studentId) === String(student._id),
-          );
-          const existingActivity = existing?.activities.find(
-            (a) => String(a.activityId?._id || a.activityId) === String(activityId),
-          );
-
-          initialMarks[student._id] = {
-            rubricMarks: rubric.map((r) => {
-              const existingMark = existingActivity?.rubricMarks.find(
-                (rm) => String(rm.criteriaId?._id || rm.criteriaId) === String(r._id),
-              );
-              return {
-                criteriaId: r._id,
-                name: r.name,
-                maxMarks: r.maxMarks,
-                marks: existingMark?.marks ?? "",
-              };
-            }),
-            attendance: existingActivity?.attendance || "Present",
-            exists: !!existing,
-            id: existing?._id,
-          };
-        });
-
-        setMarksData(initialMarks);
-        setLoading(false);
-      } catch (err) {
-        console.error(err);
-        showToast("error", "Failed to load activity or students");
-        setLoading(false);
-      }
-    };
-
+  useEffect(() => {
     fetchData();
   }, [activityId]);
+
+ 
+  const handleToggleAttendance = (studentId) => {
+    setMarksData((prev) => {
+      const current = prev[studentId];
+      if (!current.originallyAbsent) return prev; // Only toggle if originally absent
+
+      const newAttendance = current.attendance === "Absent" ? "Present" : "Absent";
+      
+      const newRubricMarks = current.rubricMarks.map(rm => ({
+          ...rm,
+          marks: newAttendance === "Absent" ? 0 : (rm.marks || 0)
+      }));
+
+      return {
+        ...prev,
+        [studentId]: {
+          ...current,
+          attendance: newAttendance,
+          rubricMarks: newRubricMarks
+        }
+      };
+    });
+    setManualEdits(prev => new Set(prev).add(studentId));
+  };
+
+  const handleMarkChange = (studentId, criteriaId, value) => {
+    setMarksData((prev) => {
+      const current = prev[studentId];
+      const newRubricMarks = current.rubricMarks.map((rm) =>
+        String(rm.criteriaId) === String(criteriaId) ? { ...rm, marks: value } : rm
+      );
+
+      return {
+        ...prev,
+        [studentId]: {
+          ...current,
+          rubricMarks: newRubricMarks,
+        },
+      };
+    });
+    setManualEdits(prev => new Set(prev).add(studentId));
+  };
+
+  const handleSaveManual = async () => {
+    if (manualEdits.size === 0) {
+      showToast("info", "No changes to save");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const updates = Array.from(manualEdits).map(studentId => ({
+        studentId,
+        attendance: marksData[studentId].attendance,
+        rubricMarks: marksData[studentId].rubricMarks.map(rm => ({
+          criteriaId: rm.criteriaId,
+          marks: Number(rm.marks || 0)
+        }))
+      }));
+
+      await API.post(`/marks/activity/${activityId}/bulk-update`, { updates });
+      showToast("success", "Manual marks saved successfully");
+      setManualEdits(new Set()); // Reset edits
+      await fetchData(false); // Refresh data from server quietly
+    } catch (err) {
+      console.error(err);
+      showToast("error", err.response?.data?.error || "Failed to save marks");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleExcelUpload = async (e) => {
     const file = e.target.files[0];
@@ -210,9 +253,18 @@ function AddMarks() {
           </a>
         </div>
 
-        <div className="status-alert status-alert-info" style={{ marginBottom: "16px" }}>
-          Download the sheet, edit marks there, and re-upload it to update existing values. The table below is read-only.
+        <div className="status-alert status-alert-info" style={{ marginBottom: "16px", display: "flex", alignItems: "center", gap: "10px" }}>
+          <i className="fa fa-info-circle"></i>
+          <div>
+            Students marked as <strong>Absent</strong> can be manually edited. Change their status to <strong>Present</strong> to enter marks.
+          </div>
         </div>
+        {manualEdits.size > 0 && (
+          <div className="status-alert status-alert-warn" style={{ marginBottom: "16px", display: "flex", alignItems: "center", gap: "10px", animation: "pulse 2s infinite" }}>
+            <i className="fa fa-exclamation-triangle"></i>
+            <div>You have unsaved manual changes. Please click <strong>Save Manual Changes</strong> below.</div>
+          </div>
+        )}
         {activity.rubric.length === 0 && (
           <div className="status-alert status-alert-warn" style={{ marginBottom: "16px" }}>
             No user-defined subdivisions were configured. Using default "Total Marks" rubric. You can still upload marks via Excel.
@@ -239,49 +291,93 @@ function AddMarks() {
                 {students.map((student) => {
                   const data = marksData[student._id];
                   if (!data) return null;
+                  const isEdited = manualEdits.has(student._id);
 
                   return (
-                    <tr key={student._id}>
+                    <tr key={student._id} style={{ background: isEdited ? "#fffbeb" : "inherit", transition: "background 0.3s" }}>
                       <td style={{ textAlign: "left" }}>
-                        <strong>{student.name}</strong> <span className="muted" style={{ fontSize: "13px" }}>({student.rollNumber})</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                           {isEdited && <i className="fa fa-pencil" title="Modified" style={{ color: "#d97706", fontSize: "12px" }}></i>}
+                           <strong>{student.name}</strong> 
+                        </div>
+                        <span className="muted" style={{ fontSize: "13px" }}>Roll: {student.rollNumber}</span>
                       </td>
                       {data.rubricMarks.map((r, idx) => (
                         <td key={r.criteriaId}>
                           <div
                             style={{
                               width: 80,
-                              padding: "8px",
+                              padding: "4px",
                               margin: "0 auto",
-                              display: "block",
-                              textAlign: "center",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
                               borderRadius: "6px",
-                              border: "1px solid #dbe4f1",
-                              background: "#f8fbff",
+                              border: data.originallyAbsent && data.attendance === "Present" ? "2px solid #3b82f6" : "1px solid #dbe4f1",
+                              background: data.originallyAbsent && data.attendance === "Present" ? "#fff" : "#f8fbff",
                               color: data.attendance === "Absent" ? "#9ca3af" : "#111827",
                               minHeight: "38px",
                             }}
                           >
-                            {r.marks === "" || r.marks === null || r.marks === undefined ? "" : r.marks}
+                            {data.originallyAbsent && data.attendance === "Present" ? (
+                                <input
+                                    type="number"
+                                    value={r.marks}
+                                    onChange={(e) => handleMarkChange(student._id, r.criteriaId, e.target.value)}
+                                    max={r.maxMarks}
+                                    min={0}
+                                    placeholder="0"
+                                    style={{
+                                        width: "100%",
+                                        border: "none",
+                                        background: "transparent",
+                                        textAlign: "center",
+                                        outline: "none",
+                                        fontSize: "14px",
+                                        fontWeight: "600"
+                                    }}
+                                />
+                            ) : (
+                                <span style={{ fontWeight: "500" }}>
+                                  {r.marks === "" || r.marks === null || r.marks === undefined ? "-" : r.marks}
+                                </span>
+                            )}
                           </div>
                         </td>
                       ))}
                       <td>
-                        <div
-                          className="status-select"
-                          style={{
-                            margin: "0 auto",
-                            display: "block",
-                            textAlign: "center",
-                            background: data.attendance === "Present" ? "#e8f9ef" : "#fce8e8",
-                            color: data.attendance === "Present" ? "#147a4c" : "#c9404d",
-                            border: "none",
-                            fontWeight: "bold",
-                            padding: "8px 12px",
-                            borderRadius: "8px",
-                            minWidth: "88px"
-                          }}
-                        >
-                          {data.attendance}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleAttendance(student._id)}
+                            disabled={!data.originallyAbsent}
+                            style={{
+                              margin: "0 auto",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: "8px",
+                              background: data.attendance === "Present" ? "#e8f9ef" : "#fef2f2",
+                              color: data.attendance === "Present" ? "#047857" : "#dc2626",
+                              border: `1px solid ${data.attendance === 'Present' ? '#10b981' : '#fecaca'}`,
+                              fontWeight: "600",
+                              padding: "6px 12px",
+                              borderRadius: "20px",
+                              minWidth: "110px",
+                              fontSize: "13px",
+                              cursor: data.originallyAbsent ? "pointer" : "default",
+                              opacity: data.originallyAbsent ? 1 : 0.7,
+                              boxShadow: data.originallyAbsent ? "0 1px 2px rgba(0,0,0,0.05)" : "none"
+                            }}
+                          >
+                            <i className={`fa fa-user-${data.attendance === 'Present' ? 'check' : 'times'}`}></i>
+                            {data.attendance}
+                          </button>
+                          {data.originallyAbsent && (
+                            <span style={{ fontSize: '10px', color: '#6b7280', fontWeight: '500' }}>
+                              {data.attendance === 'Absent' ? 'Click to mark Present' : 'Click to revert'}
+                            </span>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -292,6 +388,15 @@ function AddMarks() {
           </div>
         )}
         <div className="form-actions" style={{ marginTop: 24, display: "flex", gap: "12px" }}>
+          <button
+            className="btn btn-primary"
+            onClick={handleSaveManual}
+            disabled={saving || manualEdits.size === 0}
+            style={{ padding: "10px 20px" }}
+          >
+            <i className="fa fa-save" style={{ marginRight: 8 }}></i>
+            {saving ? "Saving..." : "Save Manual Changes"}
+          </button>
           <button
             className="btn btn-outline"
             onClick={() => navigate("/activities")}

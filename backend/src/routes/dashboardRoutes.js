@@ -2,6 +2,7 @@ import express from "express";
 import {
   getAdminDashboardStats,
   getHodDashboardStats,
+  getFacultyDashboardStats,
 } from "../controllers/dashboardController.js";
 
 import { getCoordinatorDashboardStats } from "../controllers/dashboardController.js";
@@ -10,6 +11,7 @@ const router = express.Router();
 
 router.get("/admin", getAdminDashboardStats);
 router.get("/hod", getHodDashboardStats);
+router.get("/faculty", authMiddleware, getFacultyDashboardStats);
 router.get(
   "/coordinator-dashboard",
   authMiddleware,

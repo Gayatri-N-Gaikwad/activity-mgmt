@@ -14,3 +14,8 @@ export const getCoordinatorDashboardAnalytics = async () => {
   const { data } = await API.get("/dashboard/coordinator-dashboard");
   return data;
 };
+
+export const getFacultyDashboardAnalytics = async () => {
+  const { data } = await API.get("/dashboard/faculty");
+  return data;
+};

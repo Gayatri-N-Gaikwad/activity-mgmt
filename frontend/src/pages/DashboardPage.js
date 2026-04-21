@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from "react";
 import API from "../services/api";
 import showToast from "../utils/toast";
+import { useNavigate } from "react-router-dom";
 
 import { getActiveAcademicYear } from "../services/teachingAssignmentApi";
+import FacultyDashboardCharts from "./FacultyDashboardCharts";
 
 function DashboardPage() {
+  const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user"));
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState({});
@@ -15,7 +18,7 @@ function DashboardPage() {
   const [downloading, setDownloading] = useState(false);
   const [updatedActivitiesCount, setUpdatedActivitiesCount] = useState(0);
   const [academicYear, setAcademicYear] = useState("");
-
+  const [activeTab, setActiveTab] = useState("overview");
 
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -268,8 +271,6 @@ function DashboardPage() {
   };
 
 
-  // Removed attendance handling functions
-
   if (loading) {
     return (
       <div className="faculty-dashboard">
@@ -296,171 +297,183 @@ function DashboardPage() {
         </div>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "16px", marginBottom: "8px" }}>
-        <button className="btn btn-primary" onClick={() => setRefreshKey((prev) => prev + 1)}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "16px", marginBottom: "8px" }}>
+        <div className="tab-container" style={{ display: "flex", gap: "8px", background: "#f1f5f9", padding: "4px", borderRadius: "8px" }}>
+           <button 
+             className={`btn ${activeTab === 'overview' ? 'btn-primary' : ''}`} 
+             style={{ border: "none", boxShadow: activeTab === 'overview' ? "" : "none", padding: "8px 16px" }}
+             onClick={() => setActiveTab('overview')}
+           >
+             <i className="fa fa-table" style={{ marginRight: 8 }}></i>
+             Overview
+           </button>
+           <button 
+             className={`btn ${activeTab === 'statistics' ? 'btn-primary' : ''}`} 
+             style={{ border: "none", boxShadow: activeTab === 'statistics' ? "" : "none", padding: "8px 16px" }}
+             onClick={() => setActiveTab('statistics')}
+           >
+             <i className="fa fa-chart-line" style={{ marginRight: 8 }}></i>
+             Statistics
+           </button>
+        </div>
+        <button className="btn btn-outline" onClick={() => setRefreshKey((prev) => prev + 1)}>
           <i className="fa fa-sync-alt" style={{ marginRight: "8px" }}></i> Refresh Data
         </button>
       </div>
 
-      <section className="stats-grid">
-        <article className="stat-card">
-          <span>Assigned Classes</span>
-          <strong>{classes.length}</strong>
-        </article>
-        <article className="stat-card">
-          <span>Assigned Subjects</span>
-          <strong>{totalSubjects}</strong>
-        </article>
-        <article className="stat-card">
-          <span>Total Students</span>
-          <strong>{totalStudents}</strong>
-        </article>
-        <article className="stat-card">
-          <span>Updated Activities</span>
-          <strong>{updatedActivitiesCount}</strong>
-        </article>
-      </section>
+      {activeTab === 'statistics' ? (
+        <FacultyDashboardCharts />
+      ) : (
+        <>
+          <section className="stats-grid">
+            <article className="stat-card">
+              <span>Assigned Classes</span>
+              <strong>{classes.length}</strong>
+            </article>
+            <article className="stat-card">
+              <span>Assigned Subjects</span>
+              <strong>{totalSubjects}</strong>
+            </article>
+            <article className="stat-card">
+              <span>Total Students</span>
+              <strong>{totalStudents}</strong>
+            </article>
+            <article className="stat-card">
+              <span>Updated Activities</span>
+              <strong>{updatedActivitiesCount}</strong>
+            </article>
+          </section>
 
-      {/* {updatedActivitiesCount < 2 && (
-        <div className="status-alert status-alert-warn">
-          Marks updated for {updatedActivitiesCount}/2 activities. Please update marks for both activities before downloading reports.
-        </div>
-      )} */}
+          {classes.length === 0 && <div className="dashboard-panel">No classes assigned.</div>}
 
-      {classes.length === 0 && <div className="dashboard-panel">No classes assigned.</div>}
+          {classes.map((cls) => (
+            <div key={cls._id || `${cls.year}-${cls.division}`} className="class-block">
+              <div className="class-block-header">
+                <h3>
+                  Class {cls.year}-{cls.division}
+                </h3>
+              </div>
 
-      {classes.map((cls) => (
-        <div key={cls._id || `${cls.year}-${cls.division}`} className="class-block">
-          <div className="class-block-header">
-            <h3>
-              Class {cls.year}-{cls.division}
-            </h3>
-          </div>
+              {(subjects[cls._id] || []).length === 0 && <div className="dashboard-panel">No subjects assigned.</div>}
 
-          {(subjects[cls._id] || []).length === 0 && <div className="dashboard-panel">No subjects assigned.</div>}
+              {(subjects[cls._id] || []).map((sub) => {
+                const classStudents = students.filter((s) =>
+                  (s.year === cls.year && s.division === cls.division) || String(s.classId) === String(cls._id)
+                ).sort((a, b) => toRollNumber(a.rollNumber) - toRollNumber(b.rollNumber));
+                if (!classStudents.length) return null;
 
-          {(subjects[cls._id] || []).map((sub) => {
-            // Convert IDs to strings for consistent comparison
-            const classStudents = students.filter((s) =>
-              (s.year === cls.year && s.division === cls.division) || String(s.classId) === String(cls._id)
-            ).sort((a, b) => toRollNumber(a.rollNumber) - toRollNumber(b.rollNumber));
-            if (!classStudents.length) return null;
+                const subjectMaxMarks = activityMaxMarks[String(sub._id)] || 0;
 
-            const subjectMaxMarks = activityMaxMarks[String(sub._id)] || 0;
+                let activityList = [];
+                const firstWithActivities = classStudents.find((stu) => {
+                  const data = marksData[String(stu._id)]?.[sub._id];
+                  return data?.activities?.length > 0;
+                });
 
-            // Determine the ordered list of activities for this subject (use first student with data)
-            let activityList = [];
-            const firstWithActivities = classStudents.find((stu) => {
-              const data = marksData[String(stu._id)]?.[sub._id];
-              return data?.activities?.length > 0;
-            });
+                if (firstWithActivities) {
+                  const data = marksData[String(firstWithActivities._id)]?.[sub._id];
+                  activityList = (data?.activities || []).map((act, idx) => ({
+                    id: getActivityId(act.activityId),
+                    name: act.activityId?.name || `Activity ${idx + 1}`,
+                  }));
+                }
 
-            if (firstWithActivities) {
-              const data = marksData[String(firstWithActivities._id)]?.[sub._id];
-              activityList = (data?.activities || []).map((act, idx) => ({
-                id: getActivityId(act.activityId),
-                name: act.activityId?.name || `Activity ${idx + 1}`,
-              }));
-            }
+                return (
+                  <section key={sub._id} className="subject-card">
+                    <div className="subject-card-header">
+                      <div>
+                        <h4>{sub.name}</h4>
+                        <p className="muted">
+                          Students: {classStudents.length} {subjectMaxMarks > 0 ? `• Total max marks: ${subjectMaxMarks}` : ""}
+                        </p>
+                      </div>
+                      <button
+                        className="btn btn-info"
+                        onClick={() => downloadSubjectReport(cls._id, sub._id, sub.name, `${cls.year}-${cls.division}`)}
+                        disabled={downloading}
+                        style={{ opacity: downloading ? 0.6 : 1 }}
+                        title={`Download marks report for ${sub.name}`}
+                      >
+                        {downloading ? "Downloading..." : "Download Report"}
+                      </button>
+                    </div>
 
-            return (
-              <section key={sub._id} className="subject-card">
-                <div className="subject-card-header">
-                  <div>
-                    <h4>{sub.name}</h4>
-                    <p className="muted">
-                      Students: {classStudents.length} {subjectMaxMarks > 0 ? `• Total max marks: ${subjectMaxMarks}` : ""}
-                    </p>
-                  </div>
-                  <button
-                    className="btn btn-info"
-                    onClick={() => downloadSubjectReport(cls._id, sub._id, sub.name, `${cls.year}-${cls.division}`)}
-                    disabled={downloading}
-                    style={{ opacity: downloading ? 0.6 : 1 }}
-                    title={`Download marks report for ${sub.name}`}
-                  >
-                    {downloading ? "Downloading..." : "Download Report"}
-                  </button>
-                </div>
-
-                <div className="subject-table-wrap">
-                  <table className="subject-table">
-                    <thead>
-                      <tr>
-                        <th>Roll No</th>
-                        <th>Student</th>
-                        {activityList.map((act, idx) => (
-                          <React.Fragment key={act.id || idx}>
-                            <th>{act.name || `Activity ${idx + 1}`}</th>
-                            <th>{act.name || `Activity ${idx + 1}`} Attendance</th>
-                          </React.Fragment>
-                        ))}
-                        <th>Total {subjectMaxMarks > 0 ? `(out of ${subjectMaxMarks})` : ""}</th>
-                        <th>Normalized out of 15</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {classStudents.map((stu) => {
-                        // Convert student ID to string for consistent key matching
-                        const studentIdStr = String(stu._id);
-                        const data =
-                          marksData[studentIdStr]?.[sub._id] || {
-                            activities: [],
-                            totalMarks: 0,
-                          };
-
-                        // Build a map for quick lookup by activity id
-                        const activityMap = new Map(
-                          (data.activities || []).map((a) => [getActivityId(a.activityId), a])
-                        );
-
-                        // Prepare per-activity cells and compute totals
-                        let total = 0;
-                        const activityCells = activityList.map((act, idx) => {
-                          const entry = activityMap.get(act.id);
-                          const marks = entry?.totalRubricMarks || 0;
-                          const attendance = entry?.attendance || 'Present';
-                          const numeric = attendance === 'Present' ? marks : 0;
-                          total += numeric;
-                          return {
-                            key: act.id || idx,
-                            marks,
-                            attendance,
-                          };
-                        });
-
-                        // Calculate normalized marks out of 15
-                        const normalizedMarks = subjectMaxMarks > 0
-                          ? Math.round((total / subjectMaxMarks) * 15)
-                          : 0;
-
-                        return (
-                          <tr key={stu._id}>
-                            <td>{stu.rollNumber}</td>
-                            <td>{stu.name}</td>
-                            {activityCells.map((c) => (
-                              <React.Fragment key={c.key}>
-                                <td>{c.marks}</td>
-                                <td>
-                                  <span className={`attendance-pill ${c.attendance === "Present" ? "present" : "absent"}`}>
-                                    {c.attendance}
-                                  </span>
-                                </td>
+                    <div className="subject-table-wrap">
+                      <table className="subject-table">
+                        <thead>
+                          <tr>
+                            <th>Roll No</th>
+                            <th>Student</th>
+                            {activityList.map((act, idx) => (
+                              <React.Fragment key={act.id || idx}>
+                                <th>{act.name || `Activity ${idx + 1}`}</th>
+                                <th>{act.name || `Activity ${idx + 1}`} Attendance</th>
                               </React.Fragment>
                             ))}
-                            <td><strong>{total}</strong></td>
-                            <td><strong>{normalizedMarks}</strong></td>
+                            <th>Total {subjectMaxMarks > 0 ? `(out of ${subjectMaxMarks})` : ""}</th>
+                            <th>Normalized out of 15</th>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-            );
-          })}
-        </div>
-      ))}
+                        </thead>
+                        <tbody>
+                          {classStudents.map((stu) => {
+                            const studentIdStr = String(stu._id);
+                            const data =
+                              marksData[studentIdStr]?.[sub._id] || {
+                                activities: [],
+                                totalMarks: 0,
+                              };
+
+                            const activityMap = new Map(
+                              (data.activities || []).map((a) => [getActivityId(a.activityId), a])
+                            );
+
+                            let total = 0;
+                            const activityCells = activityList.map((act, idx) => {
+                              const entry = activityMap.get(act.id);
+                              const marks = entry?.totalRubricMarks || 0;
+                              const attendance = entry?.attendance || 'Present';
+                              const numeric = attendance === 'Present' ? marks : 0;
+                              total += numeric;
+                              return {
+                                key: act.id || idx,
+                                marks,
+                                attendance,
+                              };
+                            });
+
+                            const normalizedMarks = subjectMaxMarks > 0
+                              ? Math.round((total / subjectMaxMarks) * 15)
+                              : 0;
+
+                            return (
+                              <tr key={stu._id}>
+                                <td>{stu.rollNumber}</td>
+                                <td>{stu.name}</td>
+                                {activityCells.map((c) => (
+                                  <React.Fragment key={c.key}>
+                                    <td>{c.marks}</td>
+                                    <td>
+                                      <span className={`attendance-pill ${c.attendance === "Present" ? "present" : "absent"}`}>
+                                        {c.attendance}
+                                      </span>
+                                    </td>
+                                  </React.Fragment>
+                                ))}
+                                <td><strong>{total}</strong></td>
+                                <td><strong>{normalizedMarks}</strong></td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          ))}
+        </>
+      )}
     </div>
   );
 }

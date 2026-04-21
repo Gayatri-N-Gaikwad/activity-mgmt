@@ -765,3 +765,112 @@ export const uploadMarksFromExcel = async (req, res) => {
 };
 
 
+
+export const bulkUpdateMarks = async (req, res) => {
+  try {
+    const { activityId } = req.params;
+    const { updates } = req.body; // Expecting [{ studentId, rubricMarks, attendance }]
+
+    if (!Array.isArray(updates) || updates.length === 0) {
+      return res.status(400).json({ error: "No updates provided" });
+    }
+
+    const activity = await Activity.findById(activityId);
+    if (!activity) return res.status(404).json({ error: "Activity not found" });
+
+    const assignmentId = activity.assignmentId?._id || activity.assignmentId;
+    const assignment = await TeachingAssignment.findById(assignmentId);
+    if (!assignment) return res.status(404).json({ error: "Teaching assignment not found" });
+
+    const rubrics = await getOrCreateRubricCriteria(activityId);
+
+    let updatedCount = 0;
+    let createdCount = 0;
+
+    for (const update of updates) {
+      const { studentId, rubricMarks, attendance } = update;
+
+      // Validate attendance
+      if (!["Present", "Absent"].includes(attendance)) {
+        continue; // Skip invalid attendance
+      }
+
+      // ❌ Absent student rule
+      let totalRubricMarks = 0;
+      let finalRubricMarks = rubricMarks;
+
+      if (attendance === "Absent") {
+          totalRubricMarks = 0;
+          // Ensure all marks are 0 for absent student
+          finalRubricMarks = rubrics.map(r => ({ criteriaId: r._id, marks: 0 }));
+      } else {
+          // Validate marks for present students
+          const validation = await validateRubricSubmission(activityId, rubricMarks);
+          if (!validation.valid) {
+            console.warn(`Validation failed for student ${studentId}: ${validation.message}`);
+            continue; // Skip invalid marks
+          }
+          totalRubricMarks = validation.totalRubricMarks;
+          finalRubricMarks = rubricMarks;
+      }
+
+      let doc = await StudentSubjectMarks.findOne({
+        studentId,
+        subjectId: assignment.subjectId,
+        year: assignment.year,
+        division: assignment.division
+      });
+
+      if (!doc) {
+        doc = new StudentSubjectMarks({
+          studentId,
+          subjectId: assignment.subjectId,
+          year: assignment.year,
+          division: assignment.division,
+          activities: []
+        });
+        createdCount++;
+      } else {
+        updatedCount++;
+      }
+
+      const activityMarks = {
+        activityId,
+        rubricMarks: finalRubricMarks,
+        totalRubricMarks,
+        attendance
+      };
+
+      const existingIndex = doc.activities.findIndex(
+        (a) => a.activityId.toString() === activityId
+      );
+
+      if (existingIndex >= 0) {
+        doc.activities[existingIndex] = activityMarks;
+      } else {
+        doc.activities.push(activityMarks);
+      }
+
+      doc.totalMarks = doc.activities.reduce(
+        (sum, a) => sum + a.totalRubricMarks,
+        0
+      );
+
+      await doc.save();
+    }
+
+    // Mark the activity status as Marks_Updated
+    await Activity.findByIdAndUpdate(activityId, { status: 'Marks_Updated' });
+
+    res.json({
+      success: true,
+      message: "Marks updated successfully",
+      updatedCount,
+      createdCount
+    });
+
+  } catch (err) {
+    console.error("Bulk update error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};

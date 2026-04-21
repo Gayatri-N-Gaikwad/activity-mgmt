@@ -10,7 +10,8 @@ import {
   downloadActivityMarks,
   downloadMultipleActivitiesMarks,
   uploadMarksFromExcel,
-  downloadMarksTemplate
+  downloadMarksTemplate,
+  bulkUpdateMarks
 } from "../controllers/marksController.js";
 
 import multer from "multer";
@@ -61,6 +62,11 @@ router.post(
   "/activity/:activityId/upload",
   upload.single("file"),
   uploadMarksFromExcel
+);
+ 
+router.post(
+  "/activity/:activityId/bulk-update",
+  bulkUpdateMarks
 );
 
 
