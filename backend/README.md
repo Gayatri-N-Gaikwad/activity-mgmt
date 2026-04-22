@@ -1,33 +1,42 @@
-activity-mgmt-backend/
-├─ src/
-│  ├─ config/
-│  │   ├─ db.js               # MongoDB connection
-│  │   └─ mailer.js           # Nodemailer setup
-│  ├─ models/
-│  │   ├─ User.js
-│  │   ├─ Class.js
-│  │   ├─ Subject.js
-│  │   ├─ Activity.js
-│  │   ├─ Rubric.js
-│  │   └─ Marks.js
-│  ├─ controllers/
-│  │   ├─ authController.js
-│  │   ├─ activityController.js
-│  │   └─ marksController.js
-│  ├─ routes/
-│  │   ├─ authRoutes.js
-│  │   ├─ activityRoutes.js
-│  │   └─ marksRoutes.js
-│  ├─ middlewares/
-│  │   ├─ authMiddleware.js
-│  │   └─ roleMiddleware.js
-│  ├─ utils/
-│  │   ├─ sendEmail.js
-│  │   └─ errorHandler.js
-│  ├─ seed/
-│  │   └─ seedData.js
-│  └─ app.js
-├─ .env
-├─ package.json
-├─ .gitignore
-└─ README.md
+# Activity Management System - Backend
+
+This is the backend API for the Activity Management System, built with Node.js and Express.
+
+## 🚀 Key Features
+- **RESTful API**: Structured endpoints for users, activities, marks, and rubrics.
+- **Excel Processing**: Handles complex marks distribution and bulk uploads using ExcelJS and XLSX.
+- **Automated Tasks**: Scheduled notifications and data processing via Node-cron.
+- **Secure Auth**: Role-based access control with JWT and Bcrypt.
+
+## 🛠️ Tech Stack
+- **Node.js & Express**: Server framework.
+- **MongoDB & Mongoose**: Database and ODM.
+- **Nodemailer**: Email communication.
+- **ExcelJS/XLSX**: Spreadsheet manipulation.
+
+## 📂 Structure
+- `src/controllers`: Business logic and request handling.
+- `src/models`: Database schemas.
+- `src/routes`: API endpoint definitions.
+- `src/utils`: Helper functions for Email, and PDF parsing.
+- `src/config`: Database and mailer configurations.
+
+## 🏃 Getting Started
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+2. Configure `.env`:
+   ```env
+   PORT=5000
+   MONGO_URI=your_mongodb_uri
+   JWT_SECRET=your_jwt_secret
+   ```
+3. Start the server:
+   ```bash
+   npm run dev
+   ```
+
+## 🔗 Related
+- [Root Documentation](../README.md)
+- [Frontend Documentation](../frontend/README.md)
