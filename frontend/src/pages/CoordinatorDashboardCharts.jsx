@@ -26,7 +26,7 @@ function CoordinatorDashboardCharts() {
   useEffect(() => {
     const token = localStorage.getItem("token");
 
-    fetch("http://localhost:5000/api/dashboard/coordinator-dashboard", {
+    fetch("https://activity-mgmt-backend.onrender.com/api/dashboard/coordinator-dashboard", {
       headers: {
         Authorization: `Bearer ${token}`,
       },
