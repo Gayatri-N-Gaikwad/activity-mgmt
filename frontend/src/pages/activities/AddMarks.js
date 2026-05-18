@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import API from "../../services/api";
 import showToast from "../../utils/toast";
@@ -19,7 +19,7 @@ function AddMarks() {
     return Number.isFinite(num) ? num : 0;
   };
 
-  const fetchData = async (showLoading = true) => {
+  const fetchData = useCallback(async (showLoading = true) => {
     try {
       if (showLoading) setLoading(true);
       // Fetch activity with rubric
@@ -99,11 +99,11 @@ function AddMarks() {
       showToast("error", "Failed to load data");
       if (showLoading) setLoading(false);
     }
-  };
+  }, [activityId]);
 
   useEffect(() => {
     fetchData();
-  }, [activityId]);
+  }, [fetchData]);
 
  
   const handleToggleAttendance = (studentId) => {

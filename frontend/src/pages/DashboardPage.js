@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from "react";
 import API from "../services/api";
 import showToast from "../utils/toast";
-import { useNavigate } from "react-router-dom";
 
 import { getActiveAcademicYear } from "../services/teachingAssignmentApi";
 import FacultyDashboardCharts from "./FacultyDashboardCharts";
 
 function DashboardPage() {
-  const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user"));
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState({});
